@@ -16,6 +16,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "**.perfectcorp.com",
       },
+      {
+        protocol: "https",
+        hostname: "**.openbeautyfacts.org",
+      },
     ],
   },
 };

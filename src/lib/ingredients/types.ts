@@ -30,6 +30,7 @@ export type FormulationCategory =
 
 export type FormulationAttribute =
   | "Fragrance-free"
+  | "Contains fragrance"
   | "Essential-oil-free"
   | "Denatured-alcohol-free"
   | "Leave-on"
@@ -39,8 +40,9 @@ export type FormulationAttribute =
 
 export type ProductSourceKind =
   | "connected-catalogue"
+  | "open-beauty-facts"
   | "user-shelf"
-  | "development-fixture";
+  | "reference-archetype";
 
 export interface SkincareProduct {
   id: string;
@@ -48,13 +50,17 @@ export interface SkincareProduct {
   name: string;
   brand: string;
   category: FormulationCategory;
-  /** Honest price representation: null when price is unavailable or non-commercial fixture */
+  /** Honest price representation: null when non-commercial / open INCI record / not entered */
   price: {
     amount: number;
     currency: string;
   } | null;
   sizeLabel?: string | null;
   imageUrl?: string | null;
+  /** EAN / UPC barcode when sourced from Open Beauty Facts */
+  barcode?: string | null;
+  /** Verified canonical URL on Open Beauty Facts when applicable */
+  sourceUrl?: string | null;
   /** Full raw INCI ingredient declaration when available */
   inciDeclaration: string | null;
   /** Highlighted key INCI ingredients resolved from the declaration */

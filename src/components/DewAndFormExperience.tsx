@@ -74,8 +74,12 @@ export function DewAndFormExperience() {
   // Care Focus Preferences
   const [selectedThemes, setSelectedThemes] = useState<CareFocusTheme[]>([]);
 
-  // Product Discovery, Shelf & Comparison state
+  // Product Discovery, Open Beauty Facts Registry, Shelf & Comparison state
   const [connectedProducts, setConnectedProducts] = useState<SkincareProduct[]>([]);
+  const [cachedRegistryById, setCachedRegistryById] = useState<Record<string, SkincareProduct>>({});
+  const [registryConnected, setRegistryConnected] = useState<boolean | null>(null);
+  const [registryLoading, setRegistryLoading] = useState<boolean>(true);
+  const [activeRegistryQuery, setActiveRegistryQuery] = useState<string | null>(null);
   const [userShelfProducts, setUserShelfProducts] = useState<SkincareProduct[]>([]);
   const [showReferenceFixtures, setShowReferenceFixtures] = useState(false);
   const [comparedIds, setComparedIds] = useState<string[]>([]);
@@ -88,8 +92,9 @@ export function DewAndFormExperience() {
 
   const inFlightRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const registryAbortRef = useRef<AbortController | null>(null);
 
-  // Load server capability status and connected catalogue feed using relative URLs
+  // Load server capability status and Open Beauty Facts registry feed using relative URLs
   useEffect(() => {
     let mounted = true;
 
@@ -106,13 +111,39 @@ export function DewAndFormExperience() {
         }
 
         if (mounted && productsRes.ok) {
-          const prodData = (await productsRes.json()) as { products?: SkincareProduct[] };
-          if (Array.isArray(prodData.products)) {
-            setConnectedProducts(prodData.products);
+          const prodData = (await productsRes.json()) as {
+            connected?: boolean;
+            products?: SkincareProduct[];
+          };
+          const isConnected = Boolean(prodData.connected);
+          const items = Array.isArray(prodData.products) ? prodData.products : [];
+          setRegistryConnected(isConnected);
+          setConnectedProducts(items);
+          if (items.length > 0) {
+            setCachedRegistryById((prev) => {
+              const next = { ...prev };
+              for (const item of items) {
+                next[item.id] = item;
+              }
+              return next;
+            });
+          } else if (!isConnected) {
+            // Graceful fallback when Open Beauty Facts is unreachable (e.g. offline network)
+            setShowReferenceFixtures(true);
           }
+        } else if (mounted) {
+          setRegistryConnected(false);
+          setShowReferenceFixtures(true);
         }
       } catch {
-        // Non-blocking: UI remains usable if initial check fails
+        if (mounted) {
+          setRegistryConnected(false);
+          setShowReferenceFixtures(true);
+        }
+      } finally {
+        if (mounted) {
+          setRegistryLoading(false);
+        }
       }
     }
 
@@ -120,7 +151,62 @@ export function DewAndFormExperience() {
     return () => {
       mounted = false;
       abortRef.current?.abort();
+      registryAbortRef.current?.abort();
     };
+  }, []);
+
+  const handleSearchRegistry = useCallback(async (rawQuery: string) => {
+    const trimmed = rawQuery.trim();
+    registryAbortRef.current?.abort();
+    const controller = new AbortController();
+    registryAbortRef.current = controller;
+
+    setRegistryLoading(true);
+    setActiveRegistryQuery(trimmed || null);
+
+    try {
+      const endpoint = trimmed
+        ? `/api/products?q=${encodeURIComponent(trimmed)}`
+        : "/api/products";
+      const res = await fetch(endpoint, {
+        method: "GET",
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      if (controller.signal.aborted) return;
+
+      if (res.ok) {
+        const data = (await res.json()) as {
+          connected?: boolean;
+          products?: SkincareProduct[];
+        };
+        const isConnected = Boolean(data.connected);
+        const items = Array.isArray(data.products) ? data.products : [];
+        setRegistryConnected(isConnected);
+        setConnectedProducts(items);
+        if (items.length > 0) {
+          setCachedRegistryById((prev) => {
+            const next = { ...prev };
+            for (const item of items) {
+              next[item.id] = item;
+            }
+            return next;
+          });
+        }
+      } else {
+        setRegistryConnected(false);
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+      setRegistryConnected(false);
+    } finally {
+      if (!controller.signal.aborted) {
+        setRegistryLoading(false);
+      }
+    }
   }, []);
 
   const suggestThemesFromResult = useCallback((res: NormalizedSkinAnalysisResult) => {
@@ -520,12 +606,13 @@ export function DewAndFormExperience() {
   }, []);
 
   const allAvailableProducts = useMemo(() => {
-    return [
-      ...connectedProducts,
-      ...userShelfProducts,
-      ...(showReferenceFixtures ? REFERENCE_FORMULATION_FIXTURES : []),
-    ];
-  }, [connectedProducts, userShelfProducts, showReferenceFixtures]);
+    const map = new Map<string, SkincareProduct>();
+    for (const p of Object.values(cachedRegistryById)) map.set(p.id, p);
+    for (const p of connectedProducts) map.set(p.id, p);
+    for (const p of userShelfProducts) map.set(p.id, p);
+    for (const p of REFERENCE_FORMULATION_FIXTURES) map.set(p.id, p);
+    return Array.from(map.values());
+  }, [cachedRegistryById, connectedProducts, userShelfProducts]);
 
   const comparedProducts = useMemo(() => {
     return comparedIds
@@ -828,6 +915,10 @@ export function DewAndFormExperience() {
         {/* E & F. Skincare Product Discovery & Ingredient Transparency */}
         <ProductDiscoverySection
           connectedProducts={connectedProducts}
+          registryConnected={registryConnected}
+          registryLoading={registryLoading}
+          activeRegistryQuery={activeRegistryQuery}
+          onSearchRegistry={handleSearchRegistry}
           userShelfProducts={userShelfProducts}
           referenceFixtures={REFERENCE_FORMULATION_FIXTURES}
           showReferenceFixtures={showReferenceFixtures}

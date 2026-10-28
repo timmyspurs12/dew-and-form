@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { BookOpen, FlaskConical, Plus, X } from "lucide-react";
+import {
+  BookOpen,
+  ExternalLink,
+  Layers,
+  Loader2,
+  Plus,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   FormulationAttribute,
@@ -9,11 +19,15 @@ import type {
   SkincareProduct,
 } from "@/lib/ingredients/types";
 import { CARE_THEME_METADATA, type CareFocusTheme } from "@/lib/youcam/metadata";
-import { EmptyState } from "./EmptyState";
 import { ProductCard } from "./ProductCard";
+import { EmptyState } from "./EmptyState";
 
 export interface ProductDiscoverySectionProps {
   connectedProducts: SkincareProduct[];
+  registryConnected: boolean | null;
+  registryLoading: boolean;
+  activeRegistryQuery: string | null;
+  onSearchRegistry: (query: string) => void;
   userShelfProducts: SkincareProduct[];
   referenceFixtures: SkincareProduct[];
   showReferenceFixtures: boolean;
@@ -26,8 +40,38 @@ export interface ProductDiscoverySectionProps {
   onOpenShelfModal: () => void;
 }
 
+const CATEGORIES: Array<"All" | FormulationCategory> = [
+  "All",
+  "Cleanser",
+  "Toner & Essence",
+  "Hydrating Serum",
+  "Targeted Treatment",
+  "Moisturiser & Barrier Cream",
+  "Sunscreen",
+];
+
+const ATTRIBUTE_FILTERS: FormulationAttribute[] = [
+  "Fragrance-free",
+  "Essential-oil-free",
+  "Denatured-alcohol-free",
+  "Leave-on",
+  "Rinse-off",
+];
+
+const SUGGESTED_REGISTRY_QUERIES = [
+  "Niacinamide",
+  "Ceramide",
+  "Hyaluronic",
+  "Salicylic acid",
+  "Panthenol",
+];
+
 export function ProductDiscoverySection({
   connectedProducts,
+  registryConnected,
+  registryLoading,
+  activeRegistryQuery,
+  onSearchRegistry,
   userShelfProducts,
   referenceFixtures,
   showReferenceFixtures,
@@ -39,64 +83,90 @@ export function ProductDiscoverySection({
   onInspectProduct,
   onOpenShelfModal,
 }: ProductDiscoverySectionProps) {
-  const [selectedCategory, setSelectedCategory] = useState<FormulationCategory | "all">("all");
-  const [selectedAttribute, setSelectedAttribute] = useState<FormulationAttribute | "all">("all");
-  const [selectedIngredient, setSelectedIngredient] = useState<string | "all">("all");
+  const [searchInput, setSearchInput] = useState(activeRegistryQuery ?? "");
+  const [selectedCategory, setSelectedCategory] = useState<"All" | FormulationCategory>("All");
+  const [selectedIngredient, setSelectedIngredient] = useState<string>("All");
+  const [requiredAttributes, setRequiredAttributes] = useState<FormulationAttribute[]>([]);
+  const [filterByFocusPreferences, setFilterByFocusPreferences] = useState(false);
 
-  const activePool = useMemo(() => {
+  const visiblePool = useMemo(() => {
     return [
-      ...connectedProducts,
       ...userShelfProducts,
+      ...connectedProducts,
       ...(showReferenceFixtures ? referenceFixtures : []),
     ];
-  }, [connectedProducts, userShelfProducts, showReferenceFixtures, referenceFixtures]);
-
-  // Build meaningful filter options strictly from real attributes present in activePool
-  const availableCategories = useMemo(() => {
-    return Array.from(new Set(activePool.map((p) => p.category)));
-  }, [activePool]);
-
-  const availableAttributes = useMemo(() => {
-    return Array.from(new Set(activePool.flatMap((p) => p.attributes)));
-  }, [activePool]);
+  }, [connectedProducts, userShelfProducts, referenceFixtures, showReferenceFixtures]);
 
   const availableIngredients = useMemo(() => {
-    return Array.from(new Set(activePool.flatMap((p) => p.keyIngredients))).sort();
-  }, [activePool]);
+    const set = new Set<string>();
+    for (const prod of visiblePool) {
+      for (const ing of prod.keyIngredients) {
+        set.add(ing);
+      }
+    }
+    return ["All", ...Array.from(set).sort()];
+  }, [visiblePool]);
 
   const filteredProducts = useMemo(() => {
-    return activePool.filter((product) => {
-      if (selectedCategory !== "all" && product.category !== selectedCategory) {
+    return visiblePool.filter((prod) => {
+      if (selectedCategory !== "All" && prod.category !== selectedCategory) {
         return false;
       }
-      if (selectedAttribute !== "all" && !product.attributes.includes(selectedAttribute)) {
-        return false;
-      }
-      if (selectedIngredient !== "all" && !product.keyIngredients.includes(selectedIngredient)) {
+      if (selectedIngredient !== "All" && !prod.keyIngredients.includes(selectedIngredient)) {
         return false;
       }
       if (
+        requiredAttributes.length > 0 &&
+        !requiredAttributes.every((attr) => prod.attributes.includes(attr))
+      ) {
+        return false;
+      }
+      if (
+        filterByFocusPreferences &&
         selectedThemes.length > 0 &&
-        !selectedThemes.some((theme) => product.focusThemes.includes(theme))
+        !prod.focusThemes.some((theme) => selectedThemes.includes(theme))
       ) {
         return false;
       }
       return true;
     });
-  }, [activePool, selectedCategory, selectedAttribute, selectedIngredient, selectedThemes]);
+  }, [
+    visiblePool,
+    selectedCategory,
+    selectedIngredient,
+    requiredAttributes,
+    filterByFocusPreferences,
+    selectedThemes,
+  ]);
 
-  const hasAnyActiveFilter =
-    selectedCategory !== "all" ||
-    selectedAttribute !== "all" ||
-    selectedIngredient !== "all" ||
-    selectedThemes.length > 0;
-
-  const clearAllFilters = () => {
-    setSelectedCategory("all");
-    setSelectedAttribute("all");
-    setSelectedIngredient("all");
-    selectedThemes.forEach((t) => onToggleTheme(t));
+  const toggleAttribute = (attr: FormulationAttribute) => {
+    setRequiredAttributes((prev) =>
+      prev.includes(attr) ? prev.filter((a) => a !== attr) : [...prev, attr]
+    );
   };
+
+  const resetLocalFilters = () => {
+    setSelectedCategory("All");
+    setSelectedIngredient("All");
+    setRequiredAttributes([]);
+    setFilterByFocusPreferences(false);
+  };
+
+  const handleRegistrySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearchRegistry(searchInput.trim());
+  };
+
+  const handleClearRegistrySearch = () => {
+    setSearchInput("");
+    onSearchRegistry("");
+  };
+
+  const hasActiveLocalFilters =
+    selectedCategory !== "All" ||
+    selectedIngredient !== "All" ||
+    requiredAttributes.length > 0 ||
+    (filterByFocusPreferences && selectedThemes.length > 0);
 
   return (
     <section
@@ -105,7 +175,7 @@ export function ProductDiscoverySection({
       className="border-b border-stone-border bg-canvas py-16 sm:py-20 lg:py-24"
     >
       <div className="editorial-container">
-        {/* Editorial Section Header */}
+        {/* Section Header */}
         <div className="flex flex-col justify-between gap-6 border-b border-stone-border pb-8 lg:flex-row lg:items-end">
           <div className="max-w-2xl">
             <p className="eyebrow-label text-sage-botanical">
@@ -115,11 +185,12 @@ export function ProductDiscoverySection({
               id="discovery-heading"
               className="mt-2.5 font-serif text-display-md font-normal text-ink"
             >
-              Explore skincare choices by documented ingredients.
+              Assess formulations by what they actually declare.
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-secondary sm:text-base">
-              Examine formulations through stated cosmetic ingredient roles, fragrance disclosures,
-              and routine purpose—without fabricated compatibility scores or promotional rankings.
+              Explore public cosmetic INCI declarations, inspect products from your own shelf, or
+              review documented ingredient monographs without synthetic compatibility scores or
+              promotional claims.
             </p>
           </div>
 
@@ -127,260 +198,403 @@ export function ProductDiscoverySection({
             <button
               type="button"
               onClick={() => onInspectProduct(null)}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial border border-stone-strong bg-surface px-4 py-2 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/60"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial border border-stone-strong bg-surface px-4 py-2.5 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/50"
             >
-              <BookOpen className="h-3.5 w-3.5 text-sage-botanical" aria-hidden="true" />
-              <span>INCI Monograph Library</span>
+              <BookOpen className="h-3.5 w-3.5 text-forest" aria-hidden="true" />
+              <span>Browse 22 INCI monographs</span>
             </button>
 
             <button
               type="button"
               onClick={onOpenShelfModal}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-4 py-2 text-xs font-medium text-surface transition-colors hover:bg-forest-hover"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-4 py-2.5 text-xs font-medium text-surface transition-colors hover:bg-forest-hover"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Inspect product from your shelf</span>
+              <span>Inspect a shelf product</span>
             </button>
           </div>
         </div>
 
-        {/* Reference Fixture Switch Bar (When live commercial feed is unconnected) */}
-        {connectedProducts.length === 0 && (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-editorial border border-stone-border bg-surface px-4 py-3 text-xs text-ink-secondary sm:px-5">
-            <div className="flex items-center gap-2.5">
-              <FlaskConical className="h-4 w-4 shrink-0 text-clay" aria-hidden="true" />
-              <span>
-                {showReferenceFixtures ? (
-                  <>
-                    <strong className="font-medium text-ink">
-                      Development Fixture Mode Active:
-                    </strong>{" "}
-                    Showing 4 unbranded, unpriced reference INCI archetypes alongside any products
-                    you add from your shelf.
-                  </>
-                ) : (
-                  <>
-                    Live commercial retail inventory is not connected to{" "}
-                    <code className="font-mono text-[11px] text-ink">/api/products</code>. No
-                    third-party brands, prices, or reviews are fabricated.
-                  </>
-                )}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              aria-pressed={showReferenceFixtures}
-              onClick={() => onToggleReferenceFixtures(!showReferenceFixtures)}
-              className={cn(
-                "inline-flex min-h-[36px] items-center gap-1.5 rounded-editorial border px-3 py-1.5 text-xs font-medium transition-colors",
-                showReferenceFixtures
-                  ? "border-clay/60 bg-clay-soft text-clay-deep"
-                  : "border-stone-strong bg-canvas text-ink hover:bg-sage-soft/60"
-              )}
-            >
-              <span>
-                {showReferenceFixtures
-                  ? "Hide reference archetypes"
-                  : "Load 4 reference INCI archetypes (Dev fixture)"}
-              </span>
-            </button>
-          </div>
-        )}
-
-        {/* Empty State vs Populated Curated Discovery Grid */}
-        {activePool.length === 0 ? (
-          <div className="mt-8">
-            <EmptyState
-              eyebrow="Retail Catalogue Unconnected"
-              title="No live retail product feed is connected yet"
-              description="Dew & Form does not invent commercial skincare brands, prices, stock availability, star ratings, or store links when a merchant catalogue is absent. You can immediately inspect and compare real products from your own routine by pasting their packaging INCI list, browse our documented ingredient monograph library, or preview non-commercial reference formulation fixtures."
-              note="Reusable ProductCard, IngredientDetails, and ProductComparison components are wired to /api/products and ready for genuine merchant inventory."
-            >
-              <button
-                type="button"
-                onClick={onOpenShelfModal}
-                className="inline-flex min-h-[46px] items-center gap-2 rounded-editorial bg-forest px-5 py-2.5 text-xs font-medium tracking-wide text-surface transition-colors hover:bg-forest-hover"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                <span>Add &amp; inspect a product from your shelf</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onToggleReferenceFixtures(true)}
-                className="inline-flex min-h-[46px] items-center gap-2 rounded-editorial border border-stone-strong bg-canvas px-5 py-2.5 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/60"
-              >
-                <FlaskConical className="h-4 w-4 text-clay" aria-hidden="true" />
-                <span>Preview non-commercial reference archetypes (Fixture)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onInspectProduct(null)}
-                className="inline-flex min-h-[46px] items-center gap-2 rounded-editorial border border-stone-border bg-surface px-4 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:text-ink"
-              >
-                <BookOpen className="h-4 w-4" aria-hidden="true" />
-                <span>Browse 22 INCI monographs</span>
-              </button>
-            </EmptyState>
-          </div>
-        ) : (
-          <div className="mt-8 space-y-8">
-            {/* Real-Data Filter Bar */}
-            <div className="space-y-4 rounded-editorial border border-stone-border bg-surface p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-secondary">
-                  Filter {activePool.length} {activePool.length === 1 ? "formulation" : "formulations"} by documented data
-                </p>
-
-                {hasAnyActiveFilter && (
+        {/* Open Beauty Facts Registry Search & Provenance Bar */}
+        <div className="mt-6 rounded-editorial border border-stone-border bg-surface p-5 sm:p-6">
+          <form onSubmit={handleRegistrySubmit} className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative flex-1">
+                <Search
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search Open Beauty Facts by product, brand, ingredient, or EAN/UPC barcode…"
+                  aria-label="Search Open Beauty Facts INCI registry"
+                  className="min-h-[44px] w-full rounded-editorial border border-stone-strong bg-canvas pl-10 pr-9 text-sm text-ink placeholder:text-ink-muted"
+                />
+                {searchInput && (
                   <button
                     type="button"
-                    onClick={clearAllFilters}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-forest underline underline-offset-4 hover:text-forest-hover"
+                    onClick={handleClearRegistrySearch}
+                    aria-label="Clear search query"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-editorial p-1 text-ink-muted hover:text-ink"
                   >
                     <X className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Reset all filters</span>
                   </button>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {/* Category Filter */}
-                <div>
-                  <label
-                    htmlFor="filter-category"
-                    className="block font-mono text-[10px] uppercase tracking-wider text-ink-muted"
-                  >
-                    Category
-                  </label>
-                  <select
-                    id="filter-category"
-                    value={selectedCategory}
-                    onChange={(e) =>
-                      setSelectedCategory(e.target.value as FormulationCategory | "all")
-                    }
-                    className="mt-1.5 min-h-[40px] w-full rounded-editorial border border-stone-border bg-canvas px-3 text-xs text-ink"
-                  >
-                    <option value="all">All categories ({availableCategories.length})</option>
-                    {availableCategories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={registryLoading}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-5 py-2.5 text-xs font-medium text-surface transition-colors hover:bg-forest-hover disabled:opacity-60"
+                >
+                  {registryLoading ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                      <span>Searching…</span>
+                    </>
+                  ) : (
+                    <span>Search registry</span>
+                  )}
+                </button>
 
-                {/* Key Ingredient Filter */}
-                <div>
-                  <label
-                    htmlFor="filter-ingredient"
-                    className="block font-mono text-[10px] uppercase tracking-wider text-ink-muted"
+                {activeRegistryQuery && (
+                  <button
+                    type="button"
+                    onClick={handleClearRegistrySearch}
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-editorial border border-stone-strong bg-canvas px-3.5 py-2.5 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/50"
                   >
-                    Documented Key Ingredient
-                  </label>
-                  <select
-                    id="filter-ingredient"
-                    value={selectedIngredient}
-                    onChange={(e) => setSelectedIngredient(e.target.value)}
-                    className="mt-1.5 min-h-[40px] w-full rounded-editorial border border-stone-border bg-canvas px-3 text-xs text-ink"
-                  >
-                    <option value="all">All documented ingredients</option>
-                    {availableIngredients.map((ing) => (
-                      <option key={ing} value={ing}>
-                        {ing}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Default feed</span>
+                  </button>
+                )}
+              </div>
+            </div>
 
-                {/* Attribute Filter */}
-                <div>
-                  <label
-                    htmlFor="filter-attribute"
-                    className="block font-mono text-[10px] uppercase tracking-wider text-ink-muted"
-                  >
-                    Formulation Attribute
-                  </label>
-                  <select
-                    id="filter-attribute"
-                    value={selectedAttribute}
-                    onChange={(e) =>
-                      setSelectedAttribute(e.target.value as FormulationAttribute | "all")
-                    }
-                    className="mt-1.5 min-h-[40px] w-full rounded-editorial border border-stone-border bg-canvas px-3 text-xs text-ink"
-                  >
-                    <option value="all">Any attribute</option>
-                    {availableAttributes.map((attr) => (
-                      <option key={attr} value={attr}>
-                        {attr}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {/* Quick Ingredient & Category Search Chips */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+                  Explore INCI registry:
+                </span>
+                {SUGGESTED_REGISTRY_QUERIES.map((term) => {
+                  const isCurrent =
+                    activeRegistryQuery?.toLowerCase() === term.toLowerCase();
+                  return (
+                    <button
+                      key={term}
+                      type="button"
+                      onClick={() => {
+                        setSearchInput(term);
+                        onSearchRegistry(term);
+                      }}
+                      className={cn(
+                        "rounded-editorial border px-2.5 py-1 text-[11px] transition-colors",
+                        isCurrent
+                          ? "border-forest bg-sage-soft font-medium text-forest"
+                          : "border-stone-border bg-canvas text-ink-secondary hover:border-stone-strong hover:text-ink"
+                      )}
+                    >
+                      {term}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Active Focus Preference Chips */}
-              <div className="border-t border-stone-border pt-3.5">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
-                  Care Focus Preferences:
+              <button
+                type="button"
+                aria-pressed={showReferenceFixtures}
+                onClick={() => onToggleReferenceFixtures(!showReferenceFixtures)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-editorial border px-3 py-1.5 text-xs font-medium transition-colors",
+                  showReferenceFixtures
+                    ? "border-clay bg-clay-soft/80 text-clay-deep"
+                    : "border-stone-border bg-canvas text-ink-secondary hover:border-stone-strong hover:text-ink"
+                )}
+              >
+                <Layers className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>
+                  {showReferenceFixtures
+                    ? "Hide 4 reference archetypes"
+                    : "Include 4 reference archetypes"}
                 </span>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(Object.keys(CARE_THEME_METADATA) as CareFocusTheme[]).map((themeKey) => {
-                    const active = selectedThemes.includes(themeKey);
+              </button>
+            </div>
+          </form>
+
+          {/* Clean Provenance Footnote */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-stone-border pt-3.5 text-[11px] text-ink-secondary">
+            {registryConnected === false ? (
+              <p>
+                Open Beauty Facts is temporarily unreachable from this connection &middot; Showing
+                non-commercial formulation archetypes and any shelf entries you inspect locally.
+              </p>
+            ) : (
+              <p>
+                <strong className="font-medium text-ink">Open INCI Registry:</strong> Public
+                packaging ingredient declarations sourced from{" "}
+                <a
+                  href="https://world.openbeautyfacts.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-forest underline decoration-forest/35 underline-offset-2 hover:text-forest-hover"
+                >
+                  <span>Open Beauty Facts</span>
+                  <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                </a>{" "}
+                under the Open Database License (ODbL). Non-commercial dataset—retail prices are not
+                listed.
+              </p>
+            )}
+
+            {activeRegistryQuery && !registryLoading && (
+              <span className="font-mono text-[10px] uppercase tracking-wider text-sage-botanical">
+                Query: &ldquo;{activeRegistryQuery}&rdquo; ({connectedProducts.length} matched)
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* User-Controlled Preference Themes Strip */}
+        <div className="mt-5 rounded-editorial border border-stone-border bg-surface p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-sage-botanical">
+                Care Focus Preferences (User-Controlled)
+              </span>
+              <p className="mt-0.5 text-xs text-ink-secondary">
+                Select focus themes manually—or adjust any suggestions derived from an analysis—to
+                highlight relevant ingredient architectures.
+              </p>
+            </div>
+
+            {selectedThemes.length > 0 && (
+              <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-ink">
+                <input
+                  type="checkbox"
+                  checked={filterByFocusPreferences}
+                  onChange={(e) => setFilterByFocusPreferences(e.target.checked)}
+                  className="h-4 w-4 rounded border-stone-strong accent-forest"
+                />
+                <span>Only show matching focus themes</span>
+              </label>
+            )}
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(Object.keys(CARE_THEME_METADATA) as CareFocusTheme[]).map((themeKey) => {
+              const active = selectedThemes.includes(themeKey);
+              return (
+                <button
+                  key={themeKey}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onToggleTheme(themeKey)}
+                  className={cn(
+                    "rounded-editorial border px-3 py-1.5 text-xs transition-colors",
+                    active
+                      ? "border-forest bg-forest font-medium text-surface"
+                      : "border-stone-border bg-canvas text-ink-secondary hover:border-stone-strong hover:text-ink"
+                  )}
+                >
+                  {CARE_THEME_METADATA[themeKey].label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Filter Controls Bar */}
+        {visiblePool.length > 0 && (
+          <div className="mt-5 space-y-4 rounded-editorial border border-stone-border bg-surface p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs font-medium text-ink">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-sage-botanical" aria-hidden="true" />
+                <span>Filter Displayed Formulations ({filteredProducts.length} shown)</span>
+              </div>
+
+              {hasActiveLocalFilters && (
+                <button
+                  type="button"
+                  onClick={resetLocalFilters}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-forest underline underline-offset-4 hover:text-forest-hover"
+                >
+                  <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                  <span>Reset filters</span>
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+              {/* Category Pills */}
+              <div className="md:col-span-8">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+                  Category
+                </span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {CATEGORIES.map((cat) => {
+                    const active = selectedCategory === cat;
                     return (
                       <button
-                        key={themeKey}
+                        key={cat}
                         type="button"
-                        aria-pressed={active}
-                        onClick={() => onToggleTheme(themeKey)}
+                        onClick={() => setSelectedCategory(cat)}
                         className={cn(
-                          "min-h-[32px] rounded-editorial border px-2.5 py-1 text-xs transition-colors",
+                          "rounded-editorial border px-2.5 py-1 text-xs transition-colors",
                           active
-                            ? "border-forest bg-forest font-medium text-surface"
+                            ? "border-forest bg-sage-soft font-medium text-forest"
                             : "border-stone-border bg-canvas text-ink-secondary hover:text-ink"
                         )}
                       >
-                        {CARE_THEME_METADATA[themeKey].label}
+                        {cat}
                       </button>
                     );
                   })}
                 </div>
               </div>
+
+              {/* Key Ingredient Select */}
+              <div className="md:col-span-4">
+                <label
+                  htmlFor="ingredient-filter-select"
+                  className="block font-mono text-[10px] uppercase tracking-wider text-ink-muted"
+                >
+                  Documented Key Ingredient
+                </label>
+                <select
+                  id="ingredient-filter-select"
+                  value={selectedIngredient}
+                  onChange={(e) => setSelectedIngredient(e.target.value)}
+                  className="mt-1.5 min-h-[38px] w-full rounded-editorial border border-stone-strong bg-canvas px-3 text-xs text-ink"
+                >
+                  {availableIngredients.map((ing) => (
+                    <option key={ing} value={ing}>
+                      {ing === "All" ? "All indexed ingredients" : ing}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Filtered Grid */}
-            {filteredProducts.length === 0 ? (
-              <EmptyState
-                eyebrow="No Matching Formulations"
-                title="No loaded formulations match the current filter combination"
-                description="Try clearing one of the active ingredient, category, or preference filters—or inspect another product from your shelf."
-              >
-                <button
-                  type="button"
-                  onClick={clearAllFilters}
-                  className="inline-flex min-h-[42px] items-center rounded-editorial bg-forest px-4 py-2 text-xs font-medium text-surface hover:bg-forest-hover"
-                >
-                  Clear active filters
-                </button>
-              </EmptyState>
-            ) : (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    isCompared={comparedIds.includes(product.id)}
-                    compareDisabled={comparedIds.length >= 3}
-                    onToggleCompare={onToggleCompare}
-                    onInspectProduct={onInspectProduct}
-                  />
-                ))}
+            {/* Formulation Attribute Toggles */}
+            <div className="border-t border-stone-border pt-3.5">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+                Required Label Attributes
+              </span>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {ATTRIBUTE_FILTERS.map((attr) => {
+                  const active = requiredAttributes.includes(attr);
+                  return (
+                    <button
+                      key={attr}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleAttribute(attr)}
+                      className={cn(
+                        "rounded-editorial border px-2.5 py-1 text-xs transition-colors",
+                        active
+                          ? "border-forest bg-forest font-medium text-surface"
+                          : "border-stone-border bg-canvas text-ink-secondary hover:text-ink"
+                      )}
+                    >
+                      {attr}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
         )}
+
+        {/* Product Grid or Honest Empty / Loading State */}
+        <div className="mt-8">
+          {registryLoading && visiblePool.length === 0 ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex flex-col items-center justify-center rounded-editorial border border-stone-border bg-surface px-6 py-14 text-center"
+            >
+              <Loader2 className="h-5 w-5 animate-spin text-forest" aria-hidden="true" />
+              <p className="mt-3 font-serif text-xl text-ink">
+                Loading verified INCI formulations…
+              </p>
+              <p className="mt-1 text-xs text-ink-secondary">
+                Retrieving public cosmetic ingredient declarations from Open Beauty Facts.
+              </p>
+            </div>
+          ) : visiblePool.length === 0 ? (
+            <EmptyState
+              eyebrow="No Matching Registry Records"
+              title={
+                activeRegistryQuery
+                  ? `No verified skincare INCI records matched "${activeRegistryQuery}"`
+                  : "No formulations currently displayed"
+              }
+              description={
+                activeRegistryQuery
+                  ? "Only records with a verified product name, brand, and multi-ingredient INCI declaration are shown. Try a broader ingredient or brand search, paste an INCI list from your own shelf, or include the 4 reference archetypes."
+                  : "Search the Open Beauty Facts INCI registry above, inspect a product from your own shelf, or include the 4 non-commercial reference archetypes."
+              }
+            >
+              {activeRegistryQuery && (
+                <button
+                  type="button"
+                  onClick={handleClearRegistrySearch}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-4 py-2.5 text-xs font-medium text-surface transition-colors hover:bg-forest-hover"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Return to default skincare feed</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onOpenShelfModal}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial border border-stone-strong bg-canvas px-4 py-2.5 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/50"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Inspect a product from your shelf</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onToggleReferenceFixtures(true)}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial border border-stone-strong bg-canvas px-4 py-2.5 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/50"
+              >
+                <Layers className="h-3.5 w-3.5 text-clay" aria-hidden="true" />
+                <span>Include 4 reference archetypes</span>
+              </button>
+            </EmptyState>
+          ) : filteredProducts.length === 0 ? (
+            <EmptyState
+              eyebrow="Zero Filter Matches"
+              title="No displayed formulations match all active filters"
+              description="Try relaxing one of the required attribute or category filters to view more formulations."
+            >
+              <button
+                type="button"
+                onClick={resetLocalFilters}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-4 py-2.5 text-xs font-medium text-surface"
+              >
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Reset active filters</span>
+              </button>
+            </EmptyState>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  isCompared={comparedIds.includes(product.id)}
+                  compareDisabled={comparedIds.length >= 3}
+                  onToggleCompare={onToggleCompare}
+                  onInspectIngredients={(prod, ing) => onInspectProduct(prod, ing)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );

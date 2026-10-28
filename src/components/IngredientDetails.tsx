@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { AlertCircle, BookOpen, Search, X } from "lucide-react";
+import { AlertCircle, BookOpen, ExternalLink, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INGREDIENT_MONOGRAPHS, parseInciDeclaration } from "@/lib/ingredients/catalog";
 import type { IngredientMonograph, SkincareProduct } from "@/lib/ingredients/types";
@@ -94,6 +94,20 @@ export function IngredientDetails({
                   ? `${product.brand} · ${product.category}`
                   : "Documented functional roles (CosIng), published evidence context, and label limitations."}
               </Dialog.Description>
+              {product?.sourceUrl && (
+                <a
+                  href={product.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10px] text-forest underline decoration-forest/35 underline-offset-2 hover:text-forest-hover"
+                >
+                  <span>
+                    View record on Open Beauty Facts
+                    {product.barcode ? ` (#${product.barcode})` : ""}
+                  </span>
+                  <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                </a>
+              )}
             </div>
 
             <Dialog.Close asChild>
