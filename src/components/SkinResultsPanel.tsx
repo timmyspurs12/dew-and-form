@@ -1,13 +1,24 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, EyeOff, FlaskConical, Layers, RotateCcw } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowDownRight,
+  EyeOff,
+  FlaskConical,
+  Layers,
+  Moon,
+  RotateCcw,
+  Sun,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   CARE_THEME_METADATA,
   CONCERN_GROUP_LABELS,
+  composeRoutineBlueprint,
   type CareFocusTheme,
 } from "@/lib/youcam/metadata";
+import type { FormulationCategory } from "@/lib/ingredients/types";
 import type { ConcernGroup, NormalizedSkinAnalysisResult } from "@/lib/youcam/types";
 import { SkinInsightsOverview, type ScoreDisplayBasis } from "./SkinInsightsOverview";
 import { SkinMetric } from "./SkinMetric";
@@ -19,6 +30,7 @@ export interface SkinResultsPanelProps {
   hasUnanalysedLocalPreview: boolean;
   selectedThemes: CareFocusTheme[];
   onToggleTheme: (theme: CareFocusTheme) => void;
+  onSelectRoutineCategory?: (category: FormulationCategory | "All") => void;
   onStartOver: () => void;
 }
 
@@ -35,6 +47,7 @@ export function SkinResultsPanel({
   hasUnanalysedLocalPreview,
   selectedThemes,
   onToggleTheme,
+  onSelectRoutineCategory,
   onStartOver,
 }: SkinResultsPanelProps) {
   const [scoreBasis, setScoreBasis] = useState<ScoreDisplayBasis>("ui");
@@ -73,6 +86,16 @@ export function SkinResultsPanel({
     }
     return items;
   }, [result]);
+
+  const routineBlueprint = useMemo(
+    () => (selectedThemes.length > 0 ? composeRoutineBlueprint(selectedThemes) : null),
+    [selectedThemes]
+  );
+
+  const handleJumpToStepCategory = (cat: FormulationCategory) => {
+    onSelectRoutineCategory?.(cat);
+    document.getElementById("discovery")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const handleSelectMask = (url: string | null, label: string) => {
     setMaskLoadFailed(false);
@@ -428,7 +451,7 @@ export function SkinResultsPanel({
         )}
       </div>
 
-      {/* Suggested Next Steps — Explicitly Separated from Measured Results */}
+      {/* Routine Builder & Theme Selection — Explicitly Separated from Measured Results */}
       <section
         aria-labelledby="next-steps-heading"
         className="rounded-editorial border-t-2 border-forest bg-surface p-6 shadow-none ring-1 ring-stone-border sm:p-8"
@@ -436,26 +459,27 @@ export function SkinResultsPanel({
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
           <div className="lg:col-span-5">
             <p className="eyebrow-label text-sage-botanical">
-              Suggested Next Steps &middot; Non-Diagnostic Context
+              Routine Builder &middot; Non-Diagnostic Guidance
             </p>
             <h3
               id="next-steps-heading"
               className="mt-2 font-serif text-display-sm font-normal text-ink"
             >
-              Translate observations into considered routine themes
+              Shape a calm morning &amp; evening routine around your priorities
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
-              The themes alongside are optional exploratory starting points—separate from the
-              optical measurements above. Select any preferences you wish to explore when reviewing
-              ingredient monographs and comparing formulations below.
+              Choose one or more care priorities—whether suggested from your scan or adjusted
+              manually—to generate a structured AM/PM step guide, layering cautions, and
+              automatically filtered INCI formulations below.
             </p>
             <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-              Note: An AI camera score cannot diagnose dermatological conditions, barrier damage, or
-              allergies. Consult a qualified dermatologist for persistent or medical skin concerns.
+              Note: Camera observations are cosmetic surface cues and cannot diagnose dermatological
+              conditions, barrier damage, or allergies. Consult a dermatologist for persistent skin
+              concerns.
             </p>
           </div>
 
-          <div className="flex flex-col justify-between lg:col-span-7">
+          <div className="lg:col-span-7">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {(Object.keys(CARE_THEME_METADATA) as CareFocusTheme[]).map((themeKey) => {
                 const theme = CARE_THEME_METADATA[themeKey];
@@ -484,36 +508,182 @@ export function SkinResultsPanel({
                             : "border border-stone-border bg-surface text-ink-muted"
                         )}
                       >
-                        {isSelected ? "Selected" : "Select"}
+                        {isSelected ? "Active" : "Add"}
                       </span>
                     </div>
                     <p className="mt-1.5 text-xs leading-relaxed text-ink-secondary">
                       {theme.summary}
                     </p>
                     <p className="mt-2 font-mono text-[10px] text-sage-botanical">
-                      Common INCI: {theme.commonlyExploredIngredients.slice(0, 3).join(", ")}
+                      Key INCI: {theme.commonlyExploredIngredients.slice(0, 3).join(", ")}
                     </p>
                   </button>
                 );
               })}
             </div>
+          </div>
+        </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-stone-border pt-4">
-              <p className="text-xs text-ink-secondary">
-                {selectedThemes.length > 0
-                  ? `${selectedThemes.length} focus ${selectedThemes.length === 1 ? "preference" : "preferences"} active for formulation filtering.`
-                  : "Select one or more focus preferences to highlight matching formulations."}
-              </p>
+        {/* Dynamic AM / PM Step-by-Step Routine Blueprint */}
+        {routineBlueprint ? (
+          <div className="mt-8 space-y-6 border-t border-stone-border pt-7">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-sage-botanical">
+                  Suggested AM / PM Routine Structure
+                </p>
+                <h4 className="mt-1 font-serif text-xl text-ink">
+                  Tailored for{" "}
+                  {selectedThemes.map((t) => CARE_THEME_METADATA[t].label).join(" + ")}
+                </h4>
+              </div>
+              <span className="font-mono text-[11px] text-ink-muted">
+                Select any step to filter matching formulations below
+              </span>
+            </div>
 
-              <a
-                href="#discovery"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-5 py-2.5 text-xs font-medium tracking-wide text-surface transition-colors hover:bg-forest-hover"
-              >
-                <span>Explore formulations &amp; ingredients</span>
-                <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Morning (AM) Ledger */}
+              <div className="rounded-editorial border border-stone-border bg-canvas p-5">
+                <div className="flex items-center justify-between border-b border-stone-border pb-3">
+                  <span className="inline-flex items-center gap-2 font-serif text-lg text-ink">
+                    <Sun className="h-4 w-4 text-clay" aria-hidden="true" />
+                    <span>Morning Routine (AM)</span>
+                  </span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+                    Hydrate &amp; Protect
+                  </span>
+                </div>
+
+                <ol className="mt-4 space-y-4">
+                  {routineBlueprint.morningSteps.map((step) => (
+                    <li
+                      key={`am-${step.stepNumber}`}
+                      className="border-b border-stone-border/70 pb-3.5 last:border-b-0 last:pb-0"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-medium text-forest">
+                            {step.stepNumber}
+                          </span>
+                          <span className="text-sm font-medium text-ink">{step.stepTitle}</span>
+                        </div>
+                        <span className="rounded-editorial border border-stone-border bg-surface px-2 py-0.5 font-mono text-[10px] text-ink-secondary">
+                          {step.cadenceBadge}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-ink-secondary">
+                        {step.guidance}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-mono text-[10px] text-sage-botanical">
+                          Look for: {step.suggestedInci.join(", ")}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleJumpToStepCategory(step.targetCategory)}
+                          className="text-[11px] font-medium text-forest underline decoration-forest/35 underline-offset-4 hover:text-forest-hover"
+                        >
+                          Browse {step.targetCategory} &darr;
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              {/* Evening (PM) Ledger */}
+              <div className="rounded-editorial border border-stone-border bg-canvas p-5">
+                <div className="flex items-center justify-between border-b border-stone-border pb-3">
+                  <span className="inline-flex items-center gap-2 font-serif text-lg text-ink">
+                    <Moon className="h-4 w-4 text-forest" aria-hidden="true" />
+                    <span>Evening Routine (PM)</span>
+                  </span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+                    Treat &amp; Replenish
+                  </span>
+                </div>
+
+                <ol className="mt-4 space-y-4">
+                  {routineBlueprint.eveningSteps.map((step) => (
+                    <li
+                      key={`pm-${step.stepNumber}`}
+                      className="border-b border-stone-border/70 pb-3.5 last:border-b-0 last:pb-0"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-medium text-forest">
+                            {step.stepNumber}
+                          </span>
+                          <span className="text-sm font-medium text-ink">{step.stepTitle}</span>
+                        </div>
+                        <span className="rounded-editorial border border-stone-border bg-surface px-2 py-0.5 font-mono text-[10px] text-ink-secondary">
+                          {step.cadenceBadge}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-ink-secondary">
+                        {step.guidance}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-mono text-[10px] text-sage-botanical">
+                          Look for: {step.suggestedInci.join(", ")}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleJumpToStepCategory(step.targetCategory)}
+                          className="text-[11px] font-medium text-forest underline decoration-forest/35 underline-offset-4 hover:text-forest-hover"
+                        >
+                          Browse {step.targetCategory} &darr;
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+
+            {/* Layering & Pacing Cautions */}
+            <div className="rounded-editorial border border-stone-border bg-canvas p-4 sm:p-5">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle
+                  className="mt-0.5 h-4 w-4 shrink-0 text-sage-botanical"
+                  aria-hidden="true"
+                />
+                <div className="space-y-1.5 text-xs leading-relaxed text-ink-secondary">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-ink">
+                    Layering &amp; Pacing Notes
+                  </p>
+                  <ul className="space-y-1">
+                    {routineBlueprint.layeringCautions.map((caution) => (
+                      <li key={caution}>&bull; {caution}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
+        ) : null}
+
+        {/* Footer CTA */}
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-stone-border pt-4">
+          <p className="text-xs text-ink-secondary">
+            {selectedThemes.length > 0
+              ? `Formulations below are automatically filtered & ranked for your ${selectedThemes.length} active routine ${selectedThemes.length === 1 ? "priority" : "priorities"}.`
+              : "Select one or more routine priorities above to generate an AM/PM step guide and auto-filter matching formulations."}
+          </p>
+
+          <a
+            href="#discovery"
+            onClick={() => onSelectRoutineCategory?.("All")}
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-5 py-2.5 text-xs font-medium tracking-wide text-surface transition-colors hover:bg-forest-hover"
+          >
+            <span>
+              {selectedThemes.length > 0
+                ? "View matching formulations"
+                : "Explore formulations & ingredients"}
+            </span>
+            <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
         </div>
       </section>
     </div>

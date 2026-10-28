@@ -1,5 +1,9 @@
 import "server-only";
-import type { CareFocusTheme } from "@/lib/youcam/metadata";
+import {
+  CARE_THEME_METADATA,
+  isValidCareFocusTheme,
+  type CareFocusTheme,
+} from "@/lib/youcam/metadata";
 import { cleanRawInciText, parseInciDeclaration } from "./catalog";
 import type {
   FormulationAttribute,
@@ -274,18 +278,38 @@ export interface OpenBeautyFactsFeedResult {
   connected: boolean;
   source: "open-beauty-facts" | "unavailable";
   query: string | null;
+  themes: CareFocusTheme[];
   products: SkincareProduct[];
+}
+
+export function parseThemesParam(rawThemes: string | null | undefined): CareFocusTheme[] {
+  if (!rawThemes) return [];
+  return Array.from(
+    new Set(
+      rawThemes
+        .split(",")
+        .map((part) => part.trim())
+        .filter(isValidCareFocusTheme)
+    )
+  ).slice(0, 6);
 }
 
 /**
  * Queries real skincare products and packaging INCI declarations from Open Beauty Facts (ODbL).
- * Supports both default curated facial-care discovery and live keyword / EAN-UPC barcode search.
+ * Supports default curated facial-care discovery, theme-targeted discovery (`themes`),
+ * and live keyword / EAN-UPC barcode search (`rawQuery`).
  */
 export async function fetchOpenBeautyFactsProducts(
-  rawQuery?: string | null
+  rawQuery?: string | null,
+  themes: CareFocusTheme[] = []
 ): Promise<OpenBeautyFactsFeedResult> {
   const query = rawQuery?.trim().slice(0, 80) || "";
-  const cacheKey = query ? `q:${query.toLowerCase()}` : "default:facial-skincare";
+  const sortedThemeKey = [...themes].sort().join(",");
+  const cacheKey = query
+    ? `q:${query.toLowerCase()}`
+    : sortedThemeKey
+      ? `themes:${sortedThemeKey}`
+      : "default:facial-skincare";
   const now = Date.now();
 
   const cached = catalogCache.get(cacheKey);
@@ -294,6 +318,7 @@ export async function fetchOpenBeautyFactsProducts(
       connected: true,
       source: "open-beauty-facts",
       query: query || null,
+      themes,
       products: cached.products,
     };
   }
@@ -334,16 +359,29 @@ export async function fetchOpenBeautyFactsProducts(
           seenCodes.add(product.barcode);
           normalized.push(product);
         }
-        if (normalized.length >= 12) break;
+        if (normalized.length >= 15) break;
       }
     } else {
-      // Default facial skincare discovery feed via fast indexed v2 ingredient & category queries
-      const endpoints = [
-        `${baseUrl}/api/v2/search?ingredients_tags=en:niacinamide&fields=${OBF_FIELDS}&page_size=14&sort_by=unique_scans_n`,
-        `${baseUrl}/api/v2/search?ingredients_tags=en:sodium-hyaluronate&fields=${OBF_FIELDS}&page_size=14&sort_by=unique_scans_n`,
-        `${baseUrl}/api/v2/search?categories_tags=en:face-creams&fields=${OBF_FIELDS}&page_size=16&sort_by=unique_scans_n`,
-        `${baseUrl}/api/v2/search?categories_tags=en:skincare&fields=${OBF_FIELDS}&page_size=14&sort_by=unique_scans_n`,
-      ];
+      // Theme-tailored or default facial skincare discovery feed via fast indexed v2 queries
+      const themeTags = Array.from(
+        new Set(themes.flatMap((t) => CARE_THEME_METADATA[t]?.obfIngredientTags ?? []))
+      ).slice(0, 4);
+
+      const endpoints =
+        themeTags.length > 0
+          ? [
+              ...themeTags.map(
+                (tag) =>
+                  `${baseUrl}/api/v2/search?ingredients_tags=${encodeURIComponent(tag)}&fields=${OBF_FIELDS}&page_size=14&sort_by=unique_scans_n`
+              ),
+              `${baseUrl}/api/v2/search?categories_tags=en:face-creams&fields=${OBF_FIELDS}&page_size=12&sort_by=unique_scans_n`,
+            ]
+          : [
+              `${baseUrl}/api/v2/search?ingredients_tags=en:niacinamide&fields=${OBF_FIELDS}&page_size=14&sort_by=unique_scans_n`,
+              `${baseUrl}/api/v2/search?ingredients_tags=en:sodium-hyaluronate&fields=${OBF_FIELDS}&page_size=14&sort_by=unique_scans_n`,
+              `${baseUrl}/api/v2/search?categories_tags=en:face-creams&fields=${OBF_FIELDS}&page_size=16&sort_by=unique_scans_n`,
+              `${baseUrl}/api/v2/search?categories_tags=en:skincare&fields=${OBF_FIELDS}&page_size=14&sort_by=unique_scans_n`,
+            ];
 
       const settled = await Promise.allSettled(
         endpoints.map((url) => fetchObfJson<{ products?: RawOpenBeautyFactsProduct[] }>(url))
@@ -354,6 +392,7 @@ export async function fetchOpenBeautyFactsProducts(
         throw new Error("All Open Beauty Facts discovery requests failed.");
       }
 
+      const candidates: SkincareProduct[] = [];
       const seenCodes = new Set<string>();
       for (const res of settled) {
         if (res.status !== "fulfilled") continue;
@@ -364,12 +403,22 @@ export async function fetchOpenBeautyFactsProducts(
           });
           if (product && product.barcode && !seenCodes.has(product.barcode)) {
             seenCodes.add(product.barcode);
-            normalized.push(product);
+            candidates.push(product);
           }
-          if (normalized.length >= 12) break;
+          if (candidates.length >= 24) break;
         }
-        if (normalized.length >= 12) break;
+        if (candidates.length >= 24) break;
       }
+
+      if (themes.length > 0) {
+        candidates.sort((a, b) => {
+          const aOverlap = a.focusThemes.filter((t) => themes.includes(t)).length;
+          const bOverlap = b.focusThemes.filter((t) => themes.includes(t)).length;
+          return bOverlap - aOverlap;
+        });
+      }
+
+      normalized = candidates.slice(0, 15);
     }
 
     if (catalogCache.size > 100) {
@@ -386,6 +435,7 @@ export async function fetchOpenBeautyFactsProducts(
       connected: true,
       source: "open-beauty-facts",
       query: query || null,
+      themes,
       products: normalized,
     };
   } catch {
@@ -393,6 +443,7 @@ export async function fetchOpenBeautyFactsProducts(
       connected: false,
       source: "unavailable",
       query: query || null,
+      themes,
       products: [],
     };
   }

@@ -142,7 +142,7 @@ describe("Dew & Form frontend experience & v2.1 state transitions", () => {
     expect(searchRequested).toContain("/api/products?q=ceramide");
   });
 
-  it("clearly badges development fixture insights, toggles UI vs Raw scores, and preserves unreturned fields distinctly", () => {
+  it("clearly badges development fixture insights, renders AM/PM routine steps, and auto-filters matching formulations", async () => {
     render(<DewAndFormExperience />);
 
     const previewBtn = screen.getByRole("button", {
@@ -158,6 +158,14 @@ describe("Dew & Form frontend experience & v2.1 state transitions", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Unreturned or unrequested fields \(3\)/i)
+    ).toBeInTheDocument();
+
+    // Verify upgraded AM / PM Routine Blueprint & Layering Cautions render for the scan's active themes
+    expect(screen.getByText(/Morning Routine \(AM\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Evening Routine \(PM\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Layering & Pacing Notes/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Filtered to priorities/i })
     ).toBeInTheDocument();
 
     const rawRadio = screen.getByRole("radio", { name: /Raw Model \(1–100\)/i });

@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import { BookOpen, Check, ExternalLink, Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SkincareProduct } from "@/lib/ingredients/types";
+import { CARE_THEME_METADATA, type CareFocusTheme } from "@/lib/youcam/metadata";
 
 export interface ProductCardProps {
   product: SkincareProduct;
+  selectedThemes?: CareFocusTheme[];
   isCompared: boolean;
   compareDisabled: boolean;
   onToggleCompare: (productId: string) => void;
@@ -55,6 +57,7 @@ function getSourceBadge(sourceKind: SkincareProduct["sourceKind"]): {
 
 export function ProductCard({
   product,
+  selectedThemes = [],
   isCompared,
   compareDisabled,
   onToggleCompare,
@@ -63,9 +66,15 @@ export function ProductCard({
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const badge = getSourceBadge(product.sourceKind);
   const showImage = Boolean(product.imageUrl) && !imageLoadFailed;
+  const matchedThemes = product.focusThemes.filter((t) => selectedThemes.includes(t));
 
   return (
-    <article className="flex h-full flex-col justify-between rounded-editorial border border-stone-border bg-surface transition-colors hover:border-stone-strong">
+    <article
+      className={cn(
+        "flex h-full flex-col justify-between rounded-editorial border bg-surface transition-colors hover:border-stone-strong",
+        matchedThemes.length > 0 ? "border-sage-muted" : "border-stone-border"
+      )}
+    >
       <div>
         {/* Product Media or Calm Typographic Vessel Placeholder */}
         <div className="relative aspect-[16/10] w-full overflow-hidden border-b border-stone-border bg-canvas">
@@ -136,6 +145,20 @@ export function ProductCard({
               </a>
             )}
           </div>
+
+          {/* Active Routine Theme Overlap Badges (non-scored, factual INCI overlap) */}
+          {matchedThemes.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {matchedThemes.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 rounded-editorial border border-sage-muted bg-sage-soft/65 px-2 py-0.5 font-mono text-[10px] font-medium text-forest"
+                >
+                  <span>&bull; {CARE_THEME_METADATA[t].label}</span>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Why Surfaced */}
           <p className="mt-3 border-l-2 border-sage-muted pl-3 text-xs leading-relaxed text-ink-secondary">

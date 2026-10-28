@@ -8,6 +8,19 @@ export type CareFocusTheme =
   | "tone-luminosity"
   | "well-ageing-support";
 
+export const ALL_CARE_FOCUS_THEMES: CareFocusTheme[] = [
+  "hydration-support",
+  "gentle-soothing",
+  "sebum-pore-refinement",
+  "surface-smoothing",
+  "tone-luminosity",
+  "well-ageing-support",
+];
+
+export function isValidCareFocusTheme(val: string): val is CareFocusTheme {
+  return (ALL_CARE_FOCUS_THEMES as string[]).includes(val);
+}
+
 export interface ConcernEditorialMeta {
   key: CanonicalConcernKey;
   label: string;
@@ -39,52 +52,329 @@ export const CONCERN_GROUP_LABELS: Record<ConcernGroup, { title: string; subtitl
   },
 };
 
-export const CARE_THEME_METADATA: Record<
-  CareFocusTheme,
-  {
-    id: CareFocusTheme;
-    label: string;
-    summary: string;
-    commonlyExploredIngredients: string[];
-  }
-> = {
+export interface CareThemeEditorialMeta {
+  id: CareFocusTheme;
+  label: string;
+  shortLabel: string;
+  summary: string;
+  commonlyExploredIngredients: string[];
+  /** Indexed Open Beauty Facts v2 ingredient tags for live theme-matched discovery */
+  obfIngredientTags: string[];
+  morningNote: string;
+  eveningNote: string;
+  cadence: string;
+  layeringNote: string;
+}
+
+export const CARE_THEME_METADATA: Record<CareFocusTheme, CareThemeEditorialMeta> = {
   "hydration-support": {
     id: "hydration-support",
     label: "Hydration & Water Retention",
-    summary: "Humectants and barrier-supporting lipids commonly used to comfort dry-feeling skin.",
-    commonlyExploredIngredients: ["Glycerin", "Sodium Hyaluronate", "Panthenol", "Ceramide NP", "Squalane"],
+    shortLabel: "Hydration",
+    summary: "Water-binding humectants paired with barrier lipids to comfort tight or dry-feeling zones.",
+    commonlyExploredIngredients: [
+      "Glycerin",
+      "Sodium Hyaluronate",
+      "Panthenol",
+      "Ceramide NP",
+      "Squalane",
+    ],
+    obfIngredientTags: ["en:sodium-hyaluronate", "en:panthenol"],
+    morningNote: "Apply a humectant serum onto slightly damp skin before sealing with moisturiser and SPF.",
+    eveningNote: "Layer a replenishing ceramide or squalane cream as your final step to limit overnight water loss.",
+    cadence: "Suitable for daily morning and evening use.",
+    layeringNote:
+      "Humectants (glycerin, hyaluronates, panthenol) pair comfortably alongside virtually all active families.",
   },
   "gentle-soothing": {
     id: "gentle-soothing",
     label: "Calm & Redness-Conscious Care",
-    summary: "Low-irritancy, fragrance-free formulas with skin-soothing botanicals and barrier lipids.",
-    commonlyExploredIngredients: ["Centella Asiatica Extract", "Panthenol", "Allantoin", "Bisabolol", "Azelaic Acid"],
+    shortLabel: "Calm & Soothing",
+    summary: "Low-irritancy, fragrance-free formulas with soothing botanicals and barrier-supporting lipids.",
+    commonlyExploredIngredients: [
+      "Centella Asiatica Extract",
+      "Panthenol",
+      "Allantoin",
+      "Bisabolol",
+      "Azelaic Acid",
+    ],
+    obfIngredientTags: ["en:panthenol", "en:allantoin"],
+    morningNote: "Keep morning cleansing ultra-mild (or rinse with lukewarm water) and choose fragrance-free emulsions.",
+    eveningNote: "Focus on soothing conditioning steps (Centella, panthenol, allantoin, or gentle azelaic acid).",
+    cadence: "Soothing hydrators daily; introduce azelaic acid 2–3 evenings weekly at first.",
+    layeringNote:
+      "When skin feels reactive, pause high-strength exfoliating acids, essential oils, and denatured alcohol.",
   },
   "sebum-pore-refinement": {
     id: "sebum-pore-refinement",
     label: "Oil Balance & Pore Appearance",
-    summary: "Lightweight, non-heavy textures and oil-soluble exfoliants or sebum-balancing humectants.",
+    shortLabel: "Oil & Pores",
+    summary: "Breathable gel-emulsion textures with sebum-balancing humectants or oil-soluble BHA.",
     commonlyExploredIngredients: ["Niacinamide", "Salicylic Acid", "Zinc PCA", "Azelaic Acid"],
+    obfIngredientTags: ["en:niacinamide", "en:salicylic-acid"],
+    morningNote: "Use a lightweight niacinamide or zinc PCA serum beneath a non-heavy gel moisturiser and fluid SPF.",
+    eveningNote: "Cleanse thoroughly to lift sunscreen and excess sebum; use leave-on salicylic acid on measured evenings.",
+    cadence: "Niacinamide daily; leave-on salicylic acid (BHA) 2–3 evenings per week.",
+    layeringNote:
+      "Avoid harsh, stripping cleansers—over-degreasing the T-zone can leave skin tight while surface shine rebounds.",
   },
   "surface-smoothing": {
     id: "surface-smoothing",
     label: "Texture & Surface Renewal",
-    summary: "Measured keratolytic acids, gentle retinoids, or hydrating smoothers depending on tolerance.",
+    shortLabel: "Texture Renewal",
+    summary: "Measured keratolytic acids, gentle retinoids, or hydrating smoothers paced to your tolerance.",
     commonlyExploredIngredients: ["Lactic Acid", "Salicylic Acid", "Niacinamide", "Retinol"],
+    obfIngredientTags: ["en:lactic-acid", "en:salicylic-acid"],
+    morningNote: "Prioritise hydration and daily broad-spectrum SPF 30+—renewal actives increase sun sensitivity.",
+    eveningNote: "Apply a single leave-on keratolytic acid (AHA/BHA) on dedicated renewal nights, followed by plain moisturiser.",
+    cadence: "Begin 1–2 evenings per week and increase gradually only if skin stays comfortable.",
+    layeringNote:
+      "Do not stack multiple exfoliating acids (AHA + BHA) or combine leave-on acids with retinoids in the same evening.",
   },
   "tone-luminosity": {
     id: "tone-luminosity",
     label: "Tone Clarity & Radiance",
-    summary: "Antioxidants and tone-evening actives best paired with consistent daily broad-spectrum sunscreen.",
-    commonlyExploredIngredients: ["Ascorbic Acid", "Niacinamide", "Tranexamic Acid", "Azelaic Acid", "Tocopherol"],
+    shortLabel: "Tone & Radiance",
+    summary: "Antioxidants and tone-evening conditioning steps anchored by consistent daily UV protection.",
+    commonlyExploredIngredients: [
+      "Ascorbic Acid",
+      "Niacinamide",
+      "Tranexamic Acid",
+      "Azelaic Acid",
+      "Tocopherol",
+    ],
+    obfIngredientTags: ["en:ascorbic-acid", "en:niacinamide"],
+    morningNote: "Apply an antioxidant vitamin C or niacinamide serum in the morning before broad-spectrum sunscreen.",
+    eveningNote: "Explore gentle tone-conditioning steps (niacinamide, tranexamic acid, or azelaic acid) beneath moisturiser.",
+    cadence: "Consistent daily sunscreen is essential—unprotected UV exposure counteracts brightening routines.",
+    layeringNote:
+      "Low-pH pure L-ascorbic acid serums can tingle if layered directly with exfoliating acids; separate AM (antioxidants) from PM (acids/retinoids).",
   },
   "well-ageing-support": {
     id: "well-ageing-support",
     label: "Line Softening & Elasticity",
-    summary: "Hydrating plumping humectants alongside retinoids or antioxidants introduced gradually.",
-    commonlyExploredIngredients: ["Retinol", "Glycerin", "Sodium Hyaluronate", "Ceramide NP", "Tocopherol"],
+    shortLabel: "Lines & Elasticity",
+    summary: "Plumping humectants and barrier lipids paired with gradual evening retinoids and daily SPF.",
+    commonlyExploredIngredients: [
+      "Retinol",
+      "Glycerin",
+      "Sodium Hyaluronate",
+      "Ceramide NP",
+      "Tocopherol",
+    ],
+    obfIngredientTags: ["en:retinol", "en:tocopherol"],
+    morningNote: "Plump fine dehydration lines with glycerin/hyaluronate and protect collagen cues with daily SPF 30+.",
+    eveningNote: "Apply a pea-sized cosmetic retinol on dry skin (or buffered over a thin humectant layer), sealed with lipid cream.",
+    cadence: "Introduce retinoids 2 evenings per week for the first 3–4 weeks before increasing frequency.",
+    layeringNote:
+      "Avoid retinoids during pregnancy or breastfeeding without medical advice, and skip exfoliating acids on retinoid nights.",
   },
 };
+
+export interface RoutineStepGuide {
+  stepNumber: string;
+  stepTitle: string;
+  targetCategory:
+    | "Cleanser"
+    | "Toner & Essence"
+    | "Hydrating Serum"
+    | "Targeted Treatment"
+    | "Moisturiser & Barrier Cream"
+    | "Sunscreen";
+  guidance: string;
+  suggestedInci: string[];
+  cadenceBadge: string;
+}
+
+export interface ComposedRoutineBlueprint {
+  morningSteps: RoutineStepGuide[];
+  eveningSteps: RoutineStepGuide[];
+  layeringCautions: string[];
+}
+
+/**
+ * Synthesizes selected care focus themes into a calm, non-medical AM / PM routine structure
+ * with conflict-aware layering notes (e.g., alternating nights when both acids and retinoids are active).
+ */
+export function composeRoutineBlueprint(
+  selectedThemes: CareFocusTheme[]
+): ComposedRoutineBlueprint {
+  const hasHydration = selectedThemes.includes("hydration-support");
+  const hasSoothing = selectedThemes.includes("gentle-soothing");
+  const hasSebum = selectedThemes.includes("sebum-pore-refinement");
+  const hasTexture = selectedThemes.includes("surface-smoothing");
+  const hasTone = selectedThemes.includes("tone-luminosity");
+  const hasWellAgeing = selectedThemes.includes("well-ageing-support");
+
+  const usesAcids = hasSebum || hasTexture;
+  const hasAcidRetinoidConflict = usesAcids && hasWellAgeing;
+
+  // AM Step 01: Cleanse
+  const amCleanseGuidance = hasSoothing
+    ? "Rinse with lukewarm water or use a fragrance-free non-ionic glucoside wash for 20 seconds so surface lipids stay intact."
+    : hasSebum
+      ? "Use a mild gel cleanser to lift overnight T-zone sebum without sulfate tightness."
+      : "Cleanse gently with a low-foaming glycerin or glucoside wash—skin should feel comfortable, never squeaky.";
+
+  // AM Step 02: Morning Serum / Hydrator
+  const amTreatInci = Array.from(
+    new Set([
+      ...(hasTone ? ["Ascorbic Acid", "Niacinamide"] : []),
+      ...(hasSebum ? ["Niacinamide", "Zinc PCA"] : []),
+      ...(hasSoothing ? ["Centella Asiatica Extract", "Panthenol"] : []),
+      ...(hasHydration || hasWellAgeing ? ["Glycerin", "Sodium Hyaluronate"] : []),
+    ])
+  ).slice(0, 4);
+
+  const amTreatGuidance = hasTone
+    ? "Apply an antioxidant vitamin C or niacinamide serum to support even luminosity beneath sunscreen."
+    : hasSebum
+      ? "Press a lightweight niacinamide or zinc PCA humectant serum across shine-prone zones."
+      : hasSoothing
+        ? "Apply a calming panthenol and Centella serum onto damp skin to cushion redness-prone areas."
+        : "Apply a water-binding humectant serum (glycerin, sodium hyaluronate, panthenol) onto slightly damp skin.";
+
+  // AM Step 03: Moisturiser
+  const amMoisturiseGuidance =
+    hasSebum && !hasHydration
+      ? "Choose a breathable gel-cream or light emulsion so the T-zone feels balanced under sunscreen."
+      : "Seal hydration with a fragrance-free barrier cream containing glycerin, squalane, or ceramides.";
+
+  // AM Step 04: Broad-Spectrum Sunscreen
+  const amSpfGuidance =
+    usesAcids || hasWellAgeing || hasTone
+      ? "Essential final morning step: apply generous broad-spectrum SPF 30+ (especially important alongside acids, retinoids, or tone routines)."
+      : "Finish every morning with broad-spectrum SPF 30+ to protect the skin barrier from daily UV exposure.";
+
+  // PM Step 02: Evening Targeted Step
+  let pmTreatGuidance =
+    "Replenish with a soothing humectant or barrier-conditioning serum before your night cream.";
+  let pmTreatCadence = "Nightly";
+  let pmTreatCategory: RoutineStepGuide["targetCategory"] = "Hydrating Serum";
+  let pmTreatInci: string[] = ["Panthenol", "Glycerin", "Centella Asiatica Extract"];
+
+  if (hasAcidRetinoidConflict) {
+    pmTreatGuidance =
+      "Alternate evenings (skin cycling) rather than layering together: use a gentle exfoliating acid (BHA/AHA) 1–2 nights weekly, cosmetic retinol 2 nights weekly, and plain soothing hydration on recovery nights.";
+    pmTreatCadence = "Alternate nights · Never stack";
+    pmTreatCategory = "Targeted Treatment";
+    pmTreatInci = ["Salicylic Acid", "Lactic Acid", "Retinol", "Panthenol"];
+  } else if (hasWellAgeing) {
+    pmTreatGuidance =
+      "Apply a pea-sized cosmetic retinol emulsion onto dry skin (or buffered over a light humectant layer) 2–3 evenings per week, using plain hydration on off-nights.";
+    pmTreatCadence = "2–3 evenings / week";
+    pmTreatCategory = "Targeted Treatment";
+    pmTreatInci = ["Retinol", "Sodium Hyaluronate", "Tocopherol"];
+  } else if (hasTexture) {
+    pmTreatGuidance =
+      "Use a single measured leave-on lactic acid (AHA) or salicylic acid (BHA) treatment 1–3 evenings per week; stick to calm hydration on the remaining nights.";
+    pmTreatCadence = "1–3 evenings / week";
+    pmTreatCategory = "Targeted Treatment";
+    pmTreatInci = ["Lactic Acid", "Salicylic Acid", "Niacinamide"];
+  } else if (hasSebum) {
+    pmTreatGuidance =
+      "Apply niacinamide or azelaic acid most evenings, reserving leave-on salicylic acid (BHA) for 2–3 nights a week on congested zones.";
+    pmTreatCadence = "Paced 2–3x / week for BHA";
+    pmTreatCategory = "Targeted Treatment";
+    pmTreatInci = ["Niacinamide", "Salicylic Acid", "Azelaic Acid", "Zinc PCA"];
+  } else if (hasSoothing) {
+    pmTreatGuidance =
+      "Focus on fragrance-free soothing care (Centella, panthenol, allantoin, bisabolol, or gradually introduced cosmetic azelaic acid).";
+    pmTreatCadence = "Nightly comfort";
+    pmTreatCategory = "Hydrating Serum";
+    pmTreatInci = ["Centella Asiatica Extract", "Panthenol", "Allantoin", "Azelaic Acid"];
+  } else if (hasTone) {
+    pmTreatGuidance =
+      "Use a gentle tone-conditioning serum (niacinamide, tranexamic acid, or azelaic acid) beneath your evening moisturiser.";
+    pmTreatCadence = "Most evenings";
+    pmTreatCategory = "Targeted Treatment";
+    pmTreatInci = ["Niacinamide", "Tranexamic Acid", "Azelaic Acid"];
+  }
+
+  const cautions: string[] = [];
+  if (hasAcidRetinoidConflict) {
+    cautions.push(
+      "Separate exfoliating acids (salicylic, lactic) and retinoids onto different evenings to reduce stinging and barrier dryness."
+    );
+  }
+  for (const t of selectedThemes) {
+    const note = CARE_THEME_METADATA[t].layeringNote;
+    if (!cautions.includes(note)) {
+      cautions.push(note);
+    }
+  }
+  cautions.push(
+    "Introduce only one new product every 10–14 days and patch test along the jawline or inner forearm first."
+  );
+
+  return {
+    morningSteps: [
+      {
+        stepNumber: "01",
+        stepTitle: "Gentle Cleanse",
+        targetCategory: "Cleanser",
+        guidance: amCleanseGuidance,
+        suggestedInci: ["Coco-Glucoside", "Glycerin", "Panthenol"],
+        cadenceBadge: "Daily AM",
+      },
+      {
+        stepNumber: "02",
+        stepTitle: "Hydrate & Antioxidant Prep",
+        targetCategory: hasTone ? "Targeted Treatment" : "Hydrating Serum",
+        guidance: amTreatGuidance,
+        suggestedInci: amTreatInci.length > 0 ? amTreatInci : ["Glycerin", "Panthenol"],
+        cadenceBadge: "Daily AM",
+      },
+      {
+        stepNumber: "03",
+        stepTitle: "Barrier Moisturiser",
+        targetCategory: "Moisturiser & Barrier Cream",
+        guidance: amMoisturiseGuidance,
+        suggestedInci: hasSebum
+          ? ["Glycerin", "Niacinamide", "Dimethicone"]
+          : ["Ceramide NP", "Squalane", "Glycerin"],
+        cadenceBadge: "Daily AM",
+      },
+      {
+        stepNumber: "04",
+        stepTitle: "Broad-Spectrum UV Protection",
+        targetCategory: "Sunscreen",
+        guidance: amSpfGuidance,
+        suggestedInci: ["Tocopherol", "Glycerin"],
+        cadenceBadge: "Essential AM",
+      },
+    ],
+    eveningSteps: [
+      {
+        stepNumber: "01",
+        stepTitle: "Thorough Evening Cleanse",
+        targetCategory: "Cleanser",
+        guidance:
+          "Massage a gentle cleanser for 30 seconds to dissolve daily sunscreen, urban particulates, and surface sebum, then rinse with lukewarm water.",
+        suggestedInci: ["Coco-Glucoside", "Glycerin", "Allantoin"],
+        cadenceBadge: "Daily PM",
+      },
+      {
+        stepNumber: "02",
+        stepTitle: "Targeted Evening Care",
+        targetCategory: pmTreatCategory,
+        guidance: pmTreatGuidance,
+        suggestedInci: pmTreatInci,
+        cadenceBadge: pmTreatCadence,
+      },
+      {
+        stepNumber: "03",
+        stepTitle: "Restorative Lipid Seal",
+        targetCategory: "Moisturiser & Barrier Cream",
+        guidance:
+          "Finish with a comforting leave-on moisturiser rich in humectants and physiological lipids to support overnight barrier recovery.",
+        suggestedInci: ["Ceramide NP", "Cholesterol", "Squalane", "Panthenol"],
+        cadenceBadge: "Daily PM",
+      },
+    ],
+    layeringCautions: cautions.slice(0, 4),
+  };
+}
 
 export const CONCERN_METADATA: Record<CanonicalConcernKey, ConcernEditorialMeta> = {
   moisture: {
