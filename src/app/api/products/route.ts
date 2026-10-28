@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchOpenBeautyFactsProducts } from "@/lib/ingredients/open-beauty-facts";
+import {
+  fetchOpenBeautyFactsProducts,
+  parseThemesParam,
+} from "@/lib/ingredients/open-beauty-facts";
 import {
   enforceRateLimit,
   extractClientRateKey,
@@ -10,13 +13,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Product & INCI Registry Endpoint (`GET /api/products` & `GET /api/products?q=...`).
+ * Product & INCI Registry Endpoint (`GET /api/products`, `?q=...`, `&themes=...`).
  *
  * Connects server-side to the public Open Beauty Facts database (ODbL) to return
  * verified cosmetic products and packaging INCI declarations:
  * - Zero fabricated prices (`price: null` on non-commercial open INCI records)
  * - Zero fabricated ratings, stock badges, or compatibility scores
- * - Supports default facial skincare discovery and live keyword / EAN-UPC barcode search
+ * - Supports default facial skincare discovery, active routine-theme ingredient discovery,
+ *   and live keyword / EAN-UPC barcode search
  * - Degrades gracefully (`connected: false`) if upstream is unreachable
  */
 export async function GET(request: NextRequest) {
@@ -30,6 +34,7 @@ export async function GET(request: NextRequest) {
         connected: false,
         source: "rate-limited",
         query: null,
+        themes: [],
         products: [],
       },
       {
@@ -43,7 +48,8 @@ export async function GET(request: NextRequest) {
   }
 
   const rawQuery = request.nextUrl.searchParams.get("q");
-  const result = await fetchOpenBeautyFactsProducts(rawQuery);
+  const themes = parseThemesParam(request.nextUrl.searchParams.get("themes"));
+  const result = await fetchOpenBeautyFactsProducts(rawQuery, themes);
 
   return NextResponse.json(
     {
@@ -51,6 +57,7 @@ export async function GET(request: NextRequest) {
       source: result.source,
       attribution: "Open Beauty Facts (ODbL)",
       query: result.query,
+      themes: result.themes,
       products: result.products,
     },
     {

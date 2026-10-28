@@ -7,6 +7,7 @@ import {
   resetOpenBeautyFactsCacheForTests,
 } from "@/lib/ingredients/open-beauty-facts";
 import { resetRateLimitsForTests } from "@/lib/youcam/security";
+import { composeRoutineBlueprint } from "@/lib/youcam/metadata";
 import { GET as getProductsRoute } from "@/app/api/products/route";
 
 describe("Open Beauty Facts INCI normalization & /api/products route", () => {
@@ -182,5 +183,61 @@ describe("Open Beauty Facts INCI normalization & /api/products route", () => {
     expect(offlineJson.connected).toBe(false);
     expect(offlineJson.source).toBe("unavailable");
     expect(offlineJson.products).toEqual([]);
+  });
+
+  it("composes conflict-aware AM/PM routine steps and fetches theme-tailored Open Beauty Facts formulations via ?themes=", async () => {
+    const blueprint = composeRoutineBlueprint([
+      "sebum-pore-refinement",
+      "well-ageing-support",
+    ]);
+    expect(blueprint.morningSteps).toHaveLength(4);
+    expect(blueprint.eveningSteps).toHaveLength(3);
+    expect(blueprint.eveningSteps[1].cadenceBadge).toBe("Alternate nights · Never stack");
+    expect(
+      blueprint.layeringCautions.some((note) =>
+        note.includes("Separate exfoliating acids")
+      )
+    ).toBe(true);
+
+    const requestedUrls: string[] = [];
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      requestedUrls.push(url);
+      if (url.includes("ingredients_tags=en%3Asalicylic-acid")) {
+        return new Response(
+          JSON.stringify({
+            products: [
+              {
+                code: "3337875784054",
+                product_name: "Blemish Control Cleanser",
+                brands: "CeraVe",
+                categories: "Face cleansers",
+                ingredients_text:
+                  "Aqua, Cocamidopropyl Hydroxysultaine, Glycerin, Niacinamide, Salicylic Acid, Ceramide NP, Cholesterol, Citric Acid",
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(JSON.stringify({ products: [] }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const themeReq = new NextRequest(
+      "http://localhost:3000/api/products?themes=sebum-pore-refinement"
+    );
+    const themeRes = await getProductsRoute(themeReq);
+    const themeJson = (await themeRes.json()) as {
+      connected: boolean;
+      themes: string[];
+      products: Array<{ name: string; focusThemes: string[] }>;
+    };
+
+    expect(themeRes.status).toBe(200);
+    expect(themeJson.connected).toBe(true);
+    expect(themeJson.themes).toEqual(["sebum-pore-refinement"]);
+    expect(requestedUrls.some((u) => u.includes("en%3Asalicylic-acid"))).toBe(true);
+    expect(themeJson.products[0].name).toBe("Blemish Control Cleanser");
+    expect(themeJson.products[0].focusThemes).toContain("sebum-pore-refinement");
   });
 });

@@ -1,15 +1,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import * as Collapsible from "@radix-ui/react-collapsible";
 import {
   BookOpen,
+  ChevronDown,
   ExternalLink,
   Layers,
   Loader2,
+  Moon,
   Plus,
   RotateCcw,
   Search,
   SlidersHorizontal,
+  Sun,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,7 +22,11 @@ import type {
   FormulationCategory,
   SkincareProduct,
 } from "@/lib/ingredients/types";
-import { CARE_THEME_METADATA, type CareFocusTheme } from "@/lib/youcam/metadata";
+import {
+  CARE_THEME_METADATA,
+  composeRoutineBlueprint,
+  type CareFocusTheme,
+} from "@/lib/youcam/metadata";
 import { ProductCard } from "./ProductCard";
 import { EmptyState } from "./EmptyState";
 
@@ -34,6 +42,8 @@ export interface ProductDiscoverySectionProps {
   onToggleReferenceFixtures: (next: boolean) => void;
   selectedThemes: CareFocusTheme[];
   onToggleTheme: (theme: CareFocusTheme) => void;
+  selectedCategory?: "All" | FormulationCategory;
+  onCategoryChange?: (category: "All" | FormulationCategory) => void;
   comparedIds: string[];
   onToggleCompare: (productId: string) => void;
   onInspectProduct: (product: SkincareProduct | null, initialIngredient?: string) => void;
@@ -78,16 +88,29 @@ export function ProductDiscoverySection({
   onToggleReferenceFixtures,
   selectedThemes,
   onToggleTheme,
+  selectedCategory: controlledCategory,
+  onCategoryChange,
   comparedIds,
   onToggleCompare,
   onInspectProduct,
   onOpenShelfModal,
 }: ProductDiscoverySectionProps) {
   const [searchInput, setSearchInput] = useState(activeRegistryQuery ?? "");
-  const [selectedCategory, setSelectedCategory] = useState<"All" | FormulationCategory>("All");
+  const [internalCategory, setInternalCategory] = useState<"All" | FormulationCategory>("All");
   const [selectedIngredient, setSelectedIngredient] = useState<string>("All");
   const [requiredAttributes, setRequiredAttributes] = useState<FormulationAttribute[]>([]);
-  const [filterByFocusPreferences, setFilterByFocusPreferences] = useState(false);
+  // Active routine themes automatically filter & rank matching formulations by default
+  const [filterByFocusPreferences, setFilterByFocusPreferences] = useState(true);
+  const [routineDrawerOpen, setRoutineDrawerOpen] = useState(false);
+
+  const selectedCategory = controlledCategory ?? internalCategory;
+  const setSelectedCategory = (next: "All" | FormulationCategory) => {
+    if (onCategoryChange) {
+      onCategoryChange(next);
+    } else {
+      setInternalCategory(next);
+    }
+  };
 
   const visiblePool = useMemo(() => {
     return [
@@ -107,8 +130,15 @@ export function ProductDiscoverySection({
     return ["All", ...Array.from(set).sort()];
   }, [visiblePool]);
 
+  const matchingThemesCount = useMemo(() => {
+    if (selectedThemes.length === 0) return visiblePool.length;
+    return visiblePool.filter((prod) =>
+      prod.focusThemes.some((theme) => selectedThemes.includes(theme))
+    ).length;
+  }, [visiblePool, selectedThemes]);
+
   const filteredProducts = useMemo(() => {
-    return visiblePool.filter((prod) => {
+    const matches = visiblePool.filter((prod) => {
       if (selectedCategory !== "All" && prod.category !== selectedCategory) {
         return false;
       }
@@ -130,6 +160,17 @@ export function ProductDiscoverySection({
       }
       return true;
     });
+
+    if (selectedThemes.length === 0) {
+      return matches;
+    }
+
+    // Rank formulations overlapping more of the user's active routine priorities first
+    return [...matches].sort((a, b) => {
+      const aOverlap = a.focusThemes.filter((t) => selectedThemes.includes(t)).length;
+      const bOverlap = b.focusThemes.filter((t) => selectedThemes.includes(t)).length;
+      return bOverlap - aOverlap;
+    });
   }, [
     visiblePool,
     selectedCategory,
@@ -138,6 +179,11 @@ export function ProductDiscoverySection({
     filterByFocusPreferences,
     selectedThemes,
   ]);
+
+  const routineBlueprint = useMemo(
+    () => (selectedThemes.length > 0 ? composeRoutineBlueprint(selectedThemes) : null),
+    [selectedThemes]
+  );
 
   const toggleAttribute = (attr: FormulationAttribute) => {
     setRequiredAttributes((prev) =>
@@ -357,29 +403,40 @@ export function ProductDiscoverySection({
           </div>
         </div>
 
-        {/* User-Controlled Preference Themes Strip */}
+        {/* User-Controlled Routine Priorities & Auto-Filter Bar */}
         <div className="mt-5 rounded-editorial border border-stone-border bg-surface p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <span className="font-mono text-[10px] uppercase tracking-wider text-sage-botanical">
-                Care Focus Preferences (User-Controlled)
+                Active Routine Priorities (User-Controlled)
               </span>
               <p className="mt-0.5 text-xs text-ink-secondary">
-                Select focus themes manually—or adjust any suggestions derived from an analysis—to
-                highlight relevant ingredient architectures.
+                {selectedThemes.length > 0
+                  ? filterByFocusPreferences
+                    ? `Automatically filtering to formulations aligned with your ${selectedThemes.length} selected ${selectedThemes.length === 1 ? "priority" : "priorities"} (${matchingThemesCount} matched).`
+                    : `Highlighting ${matchingThemesCount} matching formulations while displaying all ${visiblePool.length} records.`
+                  : "Select any routine priorities below to view an AM/PM step guide and automatically filter matching INCI formulations."}
               </p>
             </div>
 
             {selectedThemes.length > 0 && (
-              <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-ink">
-                <input
-                  type="checkbox"
-                  checked={filterByFocusPreferences}
-                  onChange={(e) => setFilterByFocusPreferences(e.target.checked)}
-                  className="h-4 w-4 rounded border-stone-strong accent-forest"
-                />
-                <span>Only show matching focus themes</span>
-              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  aria-pressed={filterByFocusPreferences}
+                  onClick={() => setFilterByFocusPreferences((prev) => !prev)}
+                  className={cn(
+                    "rounded-editorial border px-3 py-1.5 text-xs font-medium transition-colors",
+                    filterByFocusPreferences
+                      ? "border-sage-muted bg-sage-soft text-forest"
+                      : "border-stone-strong bg-canvas text-ink hover:bg-sage-soft/50"
+                  )}
+                >
+                  {filterByFocusPreferences
+                    ? `Filtered to priorities (${matchingThemesCount}) · Show all`
+                    : `Showing all (${visiblePool.length}) · Filter to priorities`}
+                </button>
+              </div>
             )}
           </div>
 
@@ -391,7 +448,12 @@ export function ProductDiscoverySection({
                   key={themeKey}
                   type="button"
                   aria-pressed={active}
-                  onClick={() => onToggleTheme(themeKey)}
+                  onClick={() => {
+                    if (!active) {
+                      setFilterByFocusPreferences(true);
+                    }
+                    onToggleTheme(themeKey);
+                  }}
                   className={cn(
                     "rounded-editorial border px-3 py-1.5 text-xs transition-colors",
                     active
@@ -404,6 +466,83 @@ export function ProductDiscoverySection({
               );
             })}
           </div>
+
+          {/* Compact Collapsible AM/PM Routine Step Reference directly inside Discovery */}
+          {routineBlueprint && (
+            <Collapsible.Root
+              open={routineDrawerOpen}
+              onOpenChange={setRoutineDrawerOpen}
+              className="mt-4 border-t border-stone-border pt-3.5"
+            >
+              <Collapsible.Trigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 text-left text-xs font-medium text-forest hover:text-forest-hover"
+                >
+                  <span>
+                    AM / PM Routine Step &amp; Layering Guide for{" "}
+                    {selectedThemes.map((t) => CARE_THEME_METADATA[t].shortLabel).join(" + ")}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 transition-transform duration-200",
+                      routineDrawerOpen && "rotate-180"
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+              </Collapsible.Trigger>
+
+              <Collapsible.Content className="mt-3 space-y-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="rounded-editorial border border-stone-border bg-canvas p-3.5 text-xs">
+                    <p className="inline-flex items-center gap-1.5 font-medium text-ink">
+                      <Sun className="h-3.5 w-3.5 text-clay" aria-hidden="true" />
+                      <span>Morning (AM)</span>
+                    </p>
+                    <ol className="mt-2 space-y-1.5 text-ink-secondary">
+                      {routineBlueprint.morningSteps.map((s) => (
+                        <li key={`disc-am-${s.stepNumber}`}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCategory(s.targetCategory)}
+                            className="font-mono text-[10px] font-medium text-forest underline decoration-forest/30 underline-offset-2"
+                          >
+                            {s.stepNumber} {s.stepTitle}
+                          </button>{" "}
+                          &mdash; {s.guidance}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+
+                  <div className="rounded-editorial border border-stone-border bg-canvas p-3.5 text-xs">
+                    <p className="inline-flex items-center gap-1.5 font-medium text-ink">
+                      <Moon className="h-3.5 w-3.5 text-forest" aria-hidden="true" />
+                      <span>Evening (PM)</span>
+                    </p>
+                    <ol className="mt-2 space-y-1.5 text-ink-secondary">
+                      {routineBlueprint.eveningSteps.map((s) => (
+                        <li key={`disc-pm-${s.stepNumber}`}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCategory(s.targetCategory)}
+                            className="font-mono text-[10px] font-medium text-forest underline decoration-forest/30 underline-offset-2"
+                          >
+                            {s.stepNumber} {s.stepTitle}
+                          </button>{" "}
+                          ({s.cadenceBadge}) &mdash; {s.guidance}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+                <p className="text-[11px] text-ink-muted">
+                  Layering note: {routineBlueprint.layeringCautions[0]}
+                </p>
+              </Collapsible.Content>
+            </Collapsible.Root>
+          )}
         </div>
 
         {/* Filter Controls Bar */}
@@ -569,12 +708,21 @@ export function ProductDiscoverySection({
             <EmptyState
               eyebrow="Zero Filter Matches"
               title="No displayed formulations match all active filters"
-              description="Try relaxing one of the required attribute or category filters to view more formulations."
+              description="Try relaxing your category, attribute, or active routine priority filter to view all loaded formulations."
             >
+              {filterByFocusPreferences && selectedThemes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilterByFocusPreferences(false)}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-4 py-2.5 text-xs font-medium text-surface"
+                >
+                  <span>Show all {visiblePool.length} loaded formulations</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={resetLocalFilters}
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-4 py-2.5 text-xs font-medium text-surface"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial border border-stone-strong bg-canvas px-4 py-2.5 text-xs font-medium text-ink"
               >
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Reset active filters</span>
@@ -586,6 +734,7 @@ export function ProductDiscoverySection({
                 <ProductCard
                   key={product.id}
                   product={product}
+                  selectedThemes={selectedThemes}
                   isCompared={comparedIds.includes(product.id)}
                   compareDisabled={comparedIds.length >= 3}
                   onToggleCompare={onToggleCompare}

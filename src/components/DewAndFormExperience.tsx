@@ -14,7 +14,7 @@ import type {
   NormalizedSkinAnalysisResult,
   StructuredAnalysisError,
 } from "@/lib/youcam/types";
-import type { SkincareProduct } from "@/lib/ingredients/types";
+import type { FormulationCategory, SkincareProduct } from "@/lib/ingredients/types";
 
 import { BrandHeader } from "./BrandHeader";
 import { EditorialHero } from "./EditorialHero";
@@ -71,8 +71,9 @@ export function DewAndFormExperience() {
   const [analysedPortraitUrl, setAnalysedPortraitUrl] = useState<string | null>(null);
   const [qaDrawerOpen, setQaDrawerOpen] = useState(false);
 
-  // Care Focus Preferences
+  // Care Focus Preferences & Step Category Filter
   const [selectedThemes, setSelectedThemes] = useState<CareFocusTheme[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<"All" | FormulationCategory>("All");
 
   // Product Discovery, Open Beauty Facts Registry, Shelf & Comparison state
   const [connectedProducts, setConnectedProducts] = useState<SkincareProduct[]>([]);
@@ -155,73 +156,99 @@ export function DewAndFormExperience() {
     };
   }, []);
 
-  const handleSearchRegistry = useCallback(async (rawQuery: string) => {
-    const trimmed = rawQuery.trim();
-    registryAbortRef.current?.abort();
-    const controller = new AbortController();
-    registryAbortRef.current = controller;
+  const fetchRegistryFeed = useCallback(
+    async (opts: { query?: string | null; themes?: CareFocusTheme[] }) => {
+      const trimmedQuery = opts.query?.trim() || "";
+      const themesParam = (opts.themes ?? []).join(",");
 
-    setRegistryLoading(true);
-    setActiveRegistryQuery(trimmed || null);
+      registryAbortRef.current?.abort();
+      const controller = new AbortController();
+      registryAbortRef.current = controller;
 
-    try {
-      const endpoint = trimmed
-        ? `/api/products?q=${encodeURIComponent(trimmed)}`
-        : "/api/products";
-      const res = await fetch(endpoint, {
-        method: "GET",
-        cache: "no-store",
-        signal: controller.signal,
-      });
+      setRegistryLoading(true);
+      setActiveRegistryQuery(trimmedQuery || null);
 
-      if (controller.signal.aborted) return;
-
-      if (res.ok) {
-        const data = (await res.json()) as {
-          connected?: boolean;
-          products?: SkincareProduct[];
-        };
-        const isConnected = Boolean(data.connected);
-        const items = Array.isArray(data.products) ? data.products : [];
-        setRegistryConnected(isConnected);
-        setConnectedProducts(items);
-        if (items.length > 0) {
-          setCachedRegistryById((prev) => {
-            const next = { ...prev };
-            for (const item of items) {
-              next[item.id] = item;
-            }
-            return next;
-          });
+      try {
+        const searchParams = new URLSearchParams();
+        if (trimmedQuery) {
+          searchParams.set("q", trimmedQuery);
+        } else if (themesParam) {
+          searchParams.set("themes", themesParam);
         }
-      } else {
+        const qs = searchParams.toString();
+        const endpoint = qs ? `/api/products?${qs}` : "/api/products";
+
+        const res = await fetch(endpoint, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (controller.signal.aborted) return;
+
+        if (res.ok) {
+          const data = (await res.json()) as {
+            connected?: boolean;
+            products?: SkincareProduct[];
+          };
+          const isConnected = Boolean(data.connected);
+          const items = Array.isArray(data.products) ? data.products : [];
+          setRegistryConnected(isConnected);
+          setConnectedProducts(items);
+          if (items.length > 0) {
+            setCachedRegistryById((prev) => {
+              const next = { ...prev };
+              for (const item of items) {
+                next[item.id] = item;
+              }
+              return next;
+            });
+          } else if (!isConnected) {
+            setShowReferenceFixtures(true);
+          }
+        } else {
+          setRegistryConnected(false);
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
         setRegistryConnected(false);
+      } finally {
+        if (!controller.signal.aborted) {
+          setRegistryLoading(false);
+        }
       }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        return;
-      }
-      setRegistryConnected(false);
-    } finally {
-      if (!controller.signal.aborted) {
-        setRegistryLoading(false);
-      }
-    }
-  }, []);
+    },
+    []
+  );
 
-  const suggestThemesFromResult = useCallback((res: NormalizedSkinAnalysisResult) => {
-    const lowest = [...res.metrics]
-      .filter((m) => (m.uiScore ?? m.rawScore) !== null)
-      .sort((a, b) => (a.uiScore ?? a.rawScore ?? 100) - (b.uiScore ?? b.rawScore ?? 100))
-      .slice(0, 2);
+  const handleSearchRegistry = useCallback(
+    (rawQuery: string) => {
+      void fetchRegistryFeed({ query: rawQuery, themes: selectedThemes });
+    },
+    [fetchRegistryFeed, selectedThemes]
+  );
 
-    const suggested = Array.from(
-      new Set<CareFocusTheme>(
-        lowest.flatMap((m) => CONCERN_METADATA[m.key].relatedThemes.slice(0, 1))
-      )
-    );
-    setSelectedThemes(suggested);
-  }, []);
+  const suggestThemesFromResult = useCallback(
+    (res: NormalizedSkinAnalysisResult) => {
+      const lowest = [...res.metrics]
+        .filter((m) => (m.uiScore ?? m.rawScore) !== null)
+        .sort((a, b) => (a.uiScore ?? a.rawScore ?? 100) - (b.uiScore ?? b.rawScore ?? 100))
+        .slice(0, 2);
+
+      const suggested = Array.from(
+        new Set<CareFocusTheme>(
+          lowest.flatMap((m) => CONCERN_METADATA[m.key].relatedThemes.slice(0, 1))
+        )
+      );
+      setSelectedThemes(suggested);
+      if (!activeRegistryQuery) {
+        void fetchRegistryFeed({ query: null, themes: suggested });
+      }
+    },
+    [activeRegistryQuery, fetchRegistryFeed]
+  );
 
   const cancelOngoingAnalysis = useCallback(() => {
     abortRef.current?.abort();
@@ -599,11 +626,19 @@ export function DewAndFormExperience() {
     document.getElementById("analysis")?.scrollIntoView({ behavior: "smooth" });
   }, [cancelOngoingAnalysis]);
 
-  const handleToggleTheme = useCallback((theme: CareFocusTheme) => {
-    setSelectedThemes((prev) =>
-      prev.includes(theme) ? prev.filter((t) => t !== theme) : [...prev, theme]
-    );
-  }, []);
+  const handleToggleTheme = useCallback(
+    (theme: CareFocusTheme) => {
+      const nextThemes = selectedThemes.includes(theme)
+        ? selectedThemes.filter((t) => t !== theme)
+        : [...selectedThemes, theme];
+
+      setSelectedThemes(nextThemes);
+      if (!activeRegistryQuery) {
+        void fetchRegistryFeed({ query: null, themes: nextThemes });
+      }
+    },
+    [activeRegistryQuery, fetchRegistryFeed, selectedThemes]
+  );
 
   const allAvailableProducts = useMemo(() => {
     const map = new Map<string, SkincareProduct>();
@@ -885,6 +920,7 @@ export function DewAndFormExperience() {
                 hasUnanalysedLocalPreview={Boolean(selectedImage)}
                 selectedThemes={selectedThemes}
                 onToggleTheme={handleToggleTheme}
+                onSelectRoutineCategory={setSelectedCategory}
                 onStartOver={handleResetAnalysis}
               />
             ) : (
@@ -925,6 +961,8 @@ export function DewAndFormExperience() {
           onToggleReferenceFixtures={setShowReferenceFixtures}
           selectedThemes={selectedThemes}
           onToggleTheme={handleToggleTheme}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
           comparedIds={comparedIds}
           onToggleCompare={handleToggleCompare}
           onInspectProduct={handleInspectProduct}
