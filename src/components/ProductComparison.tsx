@@ -104,7 +104,8 @@ export function ProductComparison({
             <p className="eyebrow-label text-sage-botanical">Side-by-Side Assessment</p>
             <h2
               id="comparison-heading"
-              className="mt-2 font-serif text-display-md font-normal text-ink"
+              tabIndex={-1}
+              className="mt-2 font-serif text-display-md font-normal text-ink focus:outline-none"
             >
               Formulation comparison
             </h2>

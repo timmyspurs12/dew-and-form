@@ -229,7 +229,8 @@ export function ProductDiscoverySection({
             </p>
             <h2
               id="discovery-heading"
-              className="mt-2.5 font-serif text-display-md font-normal text-ink"
+              tabIndex={-1}
+              className="mt-2.5 font-serif text-display-md font-normal text-ink focus:outline-none"
             >
               Assess formulations by what they actually declare.
             </h2>

@@ -8,6 +8,7 @@
 
 ## Core Capabilities
 
+- **Guided First-Visit Studio Onboarding** — Non-blocking, accessible 4-step editorial introduction (*Welcome*, *Understand your skin*, *Discover skincare*, *Explore ingredients*) with `1 of 4` progress feedback, keyboard step navigation, direct workspace shortcuts at any stage, graceful `localStorage` persistence, and a **Take a tour** replay entry point in the header and footer.
 - **Editorial Landing & Methodology** — Introduces what optical camera skin analysis can observe, what INCI declarations document, and where clinical or personal patch-testing boundaries lie.
 - **Skin Analysis Workspace** — Supports drag-and-drop, accessible file selection, and live browser camera capture (`getUserMedia`) with both client pre-checks and authoritative server-side binary magic-byte & dimension validation (`JPEG`/`PNG`, `< 10 MB`, `≥ 480 px` short side for Standard SD or `≥ 1080 px` for High-Definition HD).
 - **Server-Proxied YouCam S2S v2.1 Integration** — Keeps `YOUCAM_API_KEY` strictly server-side (`import "server-only"`), executing the official File API initialization (`POST /s2s/v2.0/file`), pre-signed binary `PUT` transfer, conservative verified v2.1 task creation (`POST /s2s/v2.1/task/skin-analysis` with `["skin_type", "acne", "oiliness"]` SD / `["hd_skin_type", "hd_acne", "hd_oiliness"]` HD), and session-bound asynchronous task polling (`GET /s2s/v2.1/task/skin-analysis/{task_id}`).
