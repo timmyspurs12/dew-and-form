@@ -98,8 +98,8 @@ export function BrandHeader({
             <button
               type="button"
               onClick={onTakeTour}
+              aria-haspopup="dialog"
               aria-expanded={isTourOpen}
-              aria-controls="onboarding-guide"
               className={cn(
                 "ml-1 inline-flex min-h-[38px] items-center gap-1.5 rounded-editorial border px-3 py-1.5 text-xs font-medium transition-colors duration-150",
                 isTourOpen
@@ -194,6 +194,7 @@ export function BrandHeader({
                     {onTakeTour && (
                       <button
                         type="button"
+                        aria-haspopup="dialog"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           onTakeTour();

@@ -710,10 +710,7 @@ export function DewAndFormExperience() {
   const handleTakeTour = useCallback(() => {
     setOnboardingReplayGeneration((prev) => prev + 1);
     replayOnboarding();
-    window.requestAnimationFrame(() => {
-      scrollAndFocusSection("onboarding-guide", "onboarding-step-heading");
-    });
-  }, [replayOnboarding, scrollAndFocusSection]);
+  }, [replayOnboarding]);
 
   const handleOnboardingToAnalysis = useCallback(() => {
     completeOnboarding();
@@ -729,18 +726,17 @@ export function DewAndFormExperience() {
     });
   }, [completeOnboarding, scrollAndFocusSection]);
 
-  const handleOnboardingToComparison = useCallback(() => {
-    completeOnboarding();
-    window.requestAnimationFrame(() => {
-      scrollAndFocusSection("comparison", "comparison-heading");
-    });
-  }, [completeOnboarding, scrollAndFocusSection]);
-
   const handleOnboardingToIngredients = useCallback(() => {
     completeOnboarding();
     scrollAndFocusSection("discovery");
     handleInspectProduct(null);
   }, [completeOnboarding, handleInspectProduct, scrollAndFocusSection]);
+
+  const handleOnboardingToShelfInspector = useCallback(() => {
+    completeOnboarding();
+    scrollAndFocusSection("discovery");
+    setShelfModalOpen(true);
+  }, [completeOnboarding, scrollAndFocusSection]);
 
   const isBusy = workflowStatus === "submitting" || workflowStatus === "polling";
 
@@ -762,20 +758,6 @@ export function DewAndFormExperience() {
       />
 
       <main id="main-content" className="flex-1">
-        {/* Guided First-Visit Studio Introduction (non-blocking, dismissible & replayable) */}
-        {isOnboardingOpen && (
-          <OnboardingTour
-            key={onboardingReplayGeneration}
-            replayGeneration={onboardingReplayGeneration}
-            onSkip={skipOnboarding}
-            onFinish={completeOnboarding}
-            onNavigateToAnalysis={handleOnboardingToAnalysis}
-            onNavigateToDiscovery={handleOnboardingToDiscovery}
-            onNavigateToComparison={handleOnboardingToComparison}
-            onOpenIngredientsWorkspace={handleOnboardingToIngredients}
-          />
-        )}
-
         {/* A. Brand Landing Hero */}
         <EditorialHero />
 
@@ -1157,6 +1139,18 @@ export function DewAndFormExperience() {
           </div>
         </div>
       </footer>
+
+      {/* First-Time Visitor Interactive Multi-Step Onboarding Modal */}
+      <OnboardingTour
+        key={onboardingReplayGeneration}
+        open={isOnboardingOpen}
+        onSkip={skipOnboarding}
+        onFinish={completeOnboarding}
+        onNavigateToAnalysis={handleOnboardingToAnalysis}
+        onNavigateToDiscovery={handleOnboardingToDiscovery}
+        onOpenIngredientsWorkspace={handleOnboardingToIngredients}
+        onOpenShelfInspector={handleOnboardingToShelfInspector}
+      />
 
       {/* Accessible Ingredient Details Drawer */}
       <IngredientDetails
