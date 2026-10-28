@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Check, ExternalLink, Scale } from "lucide-react";
+import { BookOpen, Check, ClipboardCheck, ExternalLink, Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SkincareProduct } from "@/lib/ingredients/types";
 import { CARE_THEME_METADATA, type CareFocusTheme } from "@/lib/youcam/metadata";
@@ -13,6 +13,7 @@ export interface ProductCardProps {
   compareDisabled: boolean;
   onToggleCompare: (productId: string) => void;
   onInspectIngredients: (product: SkincareProduct, initialIngredient?: string) => void;
+  onCheckSuitability?: (product: SkincareProduct) => void;
 }
 
 export function formatProductPrice(price: SkincareProduct["price"]): string {
@@ -62,6 +63,7 @@ export function ProductCard({
   compareDisabled,
   onToggleCompare,
   onInspectIngredients,
+  onCheckSuitability,
 }: ProductCardProps) {
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const badge = getSourceBadge(product.sourceKind);
@@ -70,9 +72,14 @@ export function ProductCard({
 
   return (
     <article
+      data-selected={isCompared ? "true" : undefined}
       className={cn(
-        "flex h-full flex-col justify-between rounded-editorial border bg-surface transition-colors hover:border-stone-strong",
-        matchedThemes.length > 0 ? "border-sage-muted" : "border-stone-border"
+        "editorial-card-interactive editorial-plate-frame flex h-full flex-col justify-between hover:border-stone-strong",
+        isCompared
+          ? "border-forest ring-1 ring-forest/30"
+          : matchedThemes.length > 0
+            ? "border-sage-muted"
+            : "border-stone-border"
       )}
     >
       <div>
@@ -84,7 +91,7 @@ export function ProductCard({
               src={product.imageUrl!}
               alt={product.name}
               onError={() => setImageLoadFailed(true)}
-              className="h-full w-full object-cover"
+              className="editorial-plate-zoom h-full w-full object-cover"
               loading="lazy"
             />
           ) : (
@@ -177,7 +184,7 @@ export function ProductCard({
                     key={ing}
                     type="button"
                     onClick={() => onInspectIngredients(product, ing)}
-                    className="rounded-editorial border border-stone-border bg-canvas px-2.5 py-1 text-xs text-ink transition-colors hover:border-forest hover:bg-sage-soft/50"
+                    className="chip-interactive border-stone-border bg-canvas px-2.5 py-1 text-xs text-ink hover:border-forest hover:bg-sage-soft/50"
                   >
                     {ing}
                   </button>
@@ -207,15 +214,28 @@ export function ProductCard({
       </div>
 
       {/* Card Footer Actions */}
-      <div className="flex items-center justify-between gap-2 border-t border-stone-border bg-canvas/60 px-5 py-3.5 sm:px-6">
-        <button
-          type="button"
-          onClick={() => onInspectIngredients(product)}
-          className="inline-flex min-h-[38px] items-center gap-1.5 text-xs font-medium text-forest underline decoration-forest/35 underline-offset-4 transition-colors hover:text-forest-hover"
-        >
-          <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Full INCI &amp; roles</span>
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-border bg-canvas/60 px-5 py-3.5 sm:px-6">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onInspectIngredients(product)}
+            className="inline-flex min-h-[38px] items-center gap-1.5 text-xs font-medium text-forest underline decoration-forest/35 underline-offset-4 transition-colors hover:text-forest-hover"
+          >
+            <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Full INCI &amp; roles</span>
+          </button>
+
+          {onCheckSuitability && (
+            <button
+              type="button"
+              onClick={() => onCheckSuitability(product)}
+              className="inline-flex min-h-[38px] items-center gap-1 text-xs font-medium text-ink-secondary underline decoration-stone-strong underline-offset-4 transition-colors hover:text-forest"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Check fit</span>
+            </button>
+          )}
+        </div>
 
         <button
           type="button"
@@ -223,7 +243,7 @@ export function ProductCard({
           disabled={!isCompared && compareDisabled}
           aria-pressed={isCompared}
           className={cn(
-            "inline-flex min-h-[38px] items-center gap-1.5 rounded-editorial border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+            "chip-interactive min-h-[38px] px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-45",
             isCompared
               ? "border-forest bg-forest text-surface"
               : "border-stone-strong bg-surface text-ink hover:bg-sage-soft/60"

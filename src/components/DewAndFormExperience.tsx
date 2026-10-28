@@ -15,11 +15,13 @@ import type {
   StructuredAnalysisError,
 } from "@/lib/youcam/types";
 import type { FormulationCategory, SkincareProduct } from "@/lib/ingredients/types";
+import { useOnboardingVisibility } from "@/lib/onboarding/storage";
+import { useSavedRoutineAndProfile } from "@/lib/routine/storage";
+import type { RoutineTimeSlot } from "@/lib/routine/compatibility";
 
 import { BrandHeader } from "./BrandHeader";
 import { OnboardingTour } from "./OnboardingTour";
 import { EditorialHero } from "./EditorialHero";
-import { useOnboardingVisibility } from "@/lib/onboarding/storage";
 import { ApproachSection } from "./ApproachSection";
 import { SkinImageUploader, type SelectedSkinImage } from "./SkinImageUploader";
 import { AnalysisProgress } from "./AnalysisProgress";
@@ -27,9 +29,13 @@ import { ErrorState } from "./ErrorState";
 import { EmptyState } from "./EmptyState";
 import { SkinResultsPanel } from "./SkinResultsPanel";
 import { ProductDiscoverySection } from "./ProductDiscoverySection";
+import { ProductCheckSection } from "./ProductCheckSection";
 import { ProductComparison } from "./ProductComparison";
+import { MyRoutineSection } from "./MyRoutineSection";
 import { IngredientDetails } from "./IngredientDetails";
 import { FormulaShelfModal } from "./FormulaShelfModal";
+import { ScrollReveal } from "./ScrollReveal";
+import { DelightToast, type DelightToastMessage } from "./DelightToast";
 
 type WorkflowStatus = "idle" | "submitting" | "polling" | "success" | "error";
 
@@ -67,6 +73,33 @@ export function DewAndFormExperience() {
   } = useOnboardingVisibility();
   const [onboardingReplayGeneration, setOnboardingReplayGeneration] = useState(0);
 
+  // Persistent AM/PM My Routine + Optional Product Check Personal Profile
+  const {
+    morningProducts,
+    eveningProducts,
+    personalProfile,
+    updatedAt: routineUpdatedAt,
+    addProductToRoutine,
+    removeProductFromRoutine,
+    updatePersonalProfile,
+    clearSavedRoutineAndProfile,
+  } = useSavedRoutineAndProfile();
+
+  // Subtle milestone delight toast
+  const [delightToast, setDelightToast] = useState<DelightToastMessage | null>(null);
+  const delightTimerRef = useRef<number | null>(null);
+
+  const triggerDelight = useCallback((msg: Omit<DelightToastMessage, "id">) => {
+    if (typeof window === "undefined") return;
+    if (delightTimerRef.current !== null) {
+      window.clearTimeout(delightTimerRef.current);
+    }
+    setDelightToast({ ...msg, id: Date.now() });
+    delightTimerRef.current = window.setTimeout(() => {
+      setDelightToast(null);
+    }, 4500);
+  }, []);
+
   // Server status
   const [liveApiConfigured, setLiveApiConfigured] = useState<boolean | null>(null);
 
@@ -86,7 +119,7 @@ export function DewAndFormExperience() {
   const [selectedThemes, setSelectedThemes] = useState<CareFocusTheme[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<"All" | FormulationCategory>("All");
 
-  // Product Discovery, Open Beauty Facts Registry, Shelf & Comparison state
+  // Product Discovery, Open Beauty Facts Registry, Shelf, Product Check Seed & Comparison state
   const [connectedProducts, setConnectedProducts] = useState<SkincareProduct[]>([]);
   const [cachedRegistryById, setCachedRegistryById] = useState<Record<string, SkincareProduct>>({});
   const [registryConnected, setRegistryConnected] = useState<boolean | null>(null);
@@ -95,6 +128,8 @@ export function DewAndFormExperience() {
   const [userShelfProducts, setUserShelfProducts] = useState<SkincareProduct[]>([]);
   const [showReferenceFixtures, setShowReferenceFixtures] = useState(false);
   const [comparedIds, setComparedIds] = useState<string[]>([]);
+  const [seedProductForCheck, setSeedProductForCheck] = useState<SkincareProduct | null>(null);
+  const [seedCheckGeneration, setSeedCheckGeneration] = useState(0);
 
   // Modals / Drawers
   const [shelfModalOpen, setShelfModalOpen] = useState(false);
@@ -140,7 +175,6 @@ export function DewAndFormExperience() {
               return next;
             });
           } else if (!isConnected) {
-            // Graceful fallback when Open Beauty Facts is unreachable (e.g. offline network)
             setShowReferenceFixtures(true);
           }
         } else if (mounted) {
@@ -164,6 +198,9 @@ export function DewAndFormExperience() {
       mounted = false;
       abortRef.current?.abort();
       registryAbortRef.current?.abort();
+      if (delightTimerRef.current !== null) {
+        window.clearTimeout(delightTimerRef.current);
+      }
     };
   }, []);
 
@@ -269,10 +306,6 @@ export function DewAndFormExperience() {
     setPollCount(0);
   }, []);
 
-  /**
-   * Polls an existing server-issued `taskId` with gentle backoff, overall timeout protection,
-   * and transient error resilience — never creating duplicate paid YouCam tasks on poll failure.
-   */
   const pollExistingTask = useCallback(
     async (
       taskRef: ResumableTaskRef,
@@ -282,7 +315,10 @@ export function DewAndFormExperience() {
       const deadlineMs = Date.now() + YOUCAM_TIMING_CONFIG.overallPollTimeoutMs;
       let attempt = 0;
       let consecutiveTransientFailures = 0;
-      let nextDelayMs = Math.max(250, taskRef.pollAfterMs || YOUCAM_TIMING_CONFIG.initialPollIntervalMs);
+      let nextDelayMs = Math.max(
+        250,
+        taskRef.pollAfterMs || YOUCAM_TIMING_CONFIG.initialPollIntervalMs
+      );
 
       setActivePublicRef(taskRef.publicRef);
       setWorkflowStatus("polling");
@@ -349,7 +385,6 @@ export function DewAndFormExperience() {
           envelope = null;
         }
 
-        // Transient upstream gateway/timeout errors: retry polling the SAME task before failing
         if (pollRes.status === 502 || pollRes.status === 503 || pollRes.status === 504) {
           consecutiveTransientFailures += 1;
           if (consecutiveTransientFailures <= YOUCAM_TIMING_CONFIG.maxTransientPollRetries) {
@@ -426,7 +461,6 @@ export function DewAndFormExperience() {
         }
 
         if (envelope.status === "error") {
-          // Definitive YouCam engine error on this image — clear resumableTask so retry uses a fresh photo/submission
           setResumableTask(null);
           setAnalysisError(envelope.error);
           setWorkflowStatus("error");
@@ -439,6 +473,12 @@ export function DewAndFormExperience() {
           setAnalysedPortraitUrl(portraitPreviewUrl);
           suggestThemesFromResult(envelope.result);
           setWorkflowStatus("success");
+          triggerDelight({
+            title: "Skin analysis complete",
+            detail: "Your optical readings and routine themes are ready to explore.",
+            actionLabel: "Check a product with these goals",
+            actionHref: "#product-check",
+          });
 
           window.requestAnimationFrame(() => {
             document.getElementById("insights")?.scrollIntoView({ behavior: "smooth" });
@@ -447,7 +487,6 @@ export function DewAndFormExperience() {
         }
       }
 
-      // Overall polling deadline reached: preserve task reference so user can re-check without re-uploading
       setResumableTask(taskRef);
       setAnalysisError({
         category: "timeout",
@@ -458,7 +497,7 @@ export function DewAndFormExperience() {
       });
       setWorkflowStatus("error");
     },
-    [suggestThemesFromResult]
+    [suggestThemesFromResult, triggerDelight]
   );
 
   const handleResumePolling = useCallback(async () => {
@@ -575,7 +614,6 @@ export function DewAndFormExperience() {
       setAnalysisError(null);
       const fixture = buildYouCamDevelopmentFixture(preset);
       setAnalysisResult(fixture);
-      // Never pass user's unanalysed preview as an analysed portrait in fixture mode
       setAnalysedPortraitUrl(null);
       suggestThemesFromResult(fixture);
       setWorkflowStatus("success");
@@ -656,9 +694,17 @@ export function DewAndFormExperience() {
     for (const p of Object.values(cachedRegistryById)) map.set(p.id, p);
     for (const p of connectedProducts) map.set(p.id, p);
     for (const p of userShelfProducts) map.set(p.id, p);
+    for (const p of morningProducts) map.set(p.id, p);
+    for (const p of eveningProducts) map.set(p.id, p);
     for (const p of REFERENCE_FORMULATION_FIXTURES) map.set(p.id, p);
     return Array.from(map.values());
-  }, [cachedRegistryById, connectedProducts, userShelfProducts]);
+  }, [
+    cachedRegistryById,
+    connectedProducts,
+    userShelfProducts,
+    morningProducts,
+    eveningProducts,
+  ]);
 
   const comparedProducts = useMemo(() => {
     return comparedIds
@@ -666,15 +712,27 @@ export function DewAndFormExperience() {
       .filter((p): p is SkincareProduct => Boolean(p));
   }, [comparedIds, allAvailableProducts]);
 
-  const handleToggleCompare = useCallback((productId: string) => {
-    setComparedIds((prev) => {
-      if (prev.includes(productId)) {
-        return prev.filter((id) => id !== productId);
-      }
-      if (prev.length >= 3) return prev;
-      return [...prev, productId];
-    });
-  }, []);
+  const handleToggleCompare = useCallback(
+    (productId: string) => {
+      setComparedIds((prev) => {
+        if (prev.includes(productId)) {
+          return prev.filter((id) => id !== productId);
+        }
+        if (prev.length >= 3) return prev;
+        const next = [...prev, productId];
+        if (next.length === 2) {
+          triggerDelight({
+            title: "Side-by-side comparison ready",
+            detail: "2 formulations paired in the Comparison Matrix.",
+            actionLabel: "View comparison",
+            actionHref: "#comparison",
+          });
+        }
+        return next;
+      });
+    },
+    [triggerDelight]
+  );
 
   const handleInspectProduct = useCallback(
     (product: SkincareProduct | null, initialIngredient?: string) => {
@@ -685,9 +743,16 @@ export function DewAndFormExperience() {
     []
   );
 
-  const handleAddShelfProduct = useCallback((product: SkincareProduct) => {
-    setUserShelfProducts((prev) => [product, ...prev]);
-  }, []);
+  const handleAddShelfProduct = useCallback(
+    (product: SkincareProduct) => {
+      setUserShelfProducts((prev) => [product, ...prev.filter((p) => p.id !== product.id)]);
+      triggerDelight({
+        title: `Added "${product.name}" to your shelf`,
+        detail: "Available in Formulations, Comparison, and Product Check.",
+      });
+    },
+    [triggerDelight]
+  );
 
   const scrollAndFocusSection = useCallback((sectionId: string, headingId?: string) => {
     const prefersReducedMotion =
@@ -707,6 +772,47 @@ export function DewAndFormExperience() {
     }
   }, []);
 
+  const handleSendToProductCheck = useCallback(
+    (product: SkincareProduct) => {
+      setSeedProductForCheck({ ...product });
+      setSeedCheckGeneration((prev) => prev + 1);
+      scrollAndFocusSection("product-check", "product-check-heading");
+    },
+    [scrollAndFocusSection]
+  );
+
+  const handleCompareEvaluatedProduct = useCallback(
+    (product: SkincareProduct) => {
+      setUserShelfProducts((prev) => [product, ...prev.filter((p) => p.id !== product.id)]);
+      setComparedIds((prev) => {
+        if (prev.includes(product.id)) return prev;
+        if (prev.length >= 3) return [...prev.slice(1), product.id];
+        return [...prev, product.id];
+      });
+      scrollAndFocusSection("comparison", "comparison-heading");
+    },
+    [scrollAndFocusSection]
+  );
+
+  const handleAddToSavedRoutine = useCallback(
+    (product: SkincareProduct, slot: RoutineTimeSlot | "both") => {
+      addProductToRoutine(product, slot);
+      const slotLabel =
+        slot === "both"
+          ? "Morning & Evening Routines"
+          : slot === "morning"
+            ? "Morning Routine (AM)"
+            : "Evening Routine (PM)";
+      triggerDelight({
+        title: `Saved to ${slotLabel}`,
+        detail: `${product.name} is stored locally in your browser.`,
+        actionLabel: "View My Routine",
+        actionHref: "#my-routine",
+      });
+    },
+    [addProductToRoutine, triggerDelight]
+  );
+
   const handleTakeTour = useCallback(() => {
     setOnboardingReplayGeneration((prev) => prev + 1);
     replayOnboarding();
@@ -723,6 +829,20 @@ export function DewAndFormExperience() {
     completeOnboarding();
     window.requestAnimationFrame(() => {
       scrollAndFocusSection("discovery", "discovery-heading");
+    });
+  }, [completeOnboarding, scrollAndFocusSection]);
+
+  const handleOnboardingToProductCheck = useCallback(() => {
+    completeOnboarding();
+    window.requestAnimationFrame(() => {
+      scrollAndFocusSection("product-check", "product-check-heading");
+    });
+  }, [completeOnboarding, scrollAndFocusSection]);
+
+  const handleOnboardingToRoutine = useCallback(() => {
+    completeOnboarding();
+    window.requestAnimationFrame(() => {
+      scrollAndFocusSection("my-routine", "my-routine-heading");
     });
   }, [completeOnboarding, scrollAndFocusSection]);
 
@@ -748,298 +868,365 @@ export function DewAndFormExperience() {
 
   const retryActionLabel = resumableTask ? "Check status again" : "Retry analysis";
 
+  const genuineYouCamScan =
+    analysisResult && analysisResult.dataSource === "live-youcam-api"
+      ? analysisResult
+      : null;
+
+  const uniqueSavedRoutineCount = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of morningProducts) ids.add(p.id);
+    for (const p of eveningProducts) ids.add(p.id);
+    return ids.size;
+  }, [morningProducts, eveningProducts]);
+
   return (
-    <div className="min-h-screen flex flex-col bg-canvas text-ink">
+    <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <BrandHeader
         hasResults={Boolean(analysisResult)}
         compareCount={comparedProducts.length}
+        routineCount={uniqueSavedRoutineCount}
         isTourOpen={isOnboardingOpen}
         onTakeTour={handleTakeTour}
       />
+
+      <DelightToast toast={delightToast} onDismiss={() => setDelightToast(null)} />
 
       <main id="main-content" className="flex-1">
         {/* A. Brand Landing Hero */}
         <EditorialHero />
 
         {/* Approach & Methodology Spread */}
-        <ApproachSection />
+        <ScrollReveal>
+          <ApproachSection />
+        </ScrollReveal>
 
         {/* B & C. Skin Analysis Workspace + Progress & Error States */}
-        <section
-          id="analysis"
-          aria-labelledby="analysis-heading"
-          className="border-b border-stone-border bg-canvas py-16 sm:py-20 lg:py-24"
-        >
-          <div className="editorial-container">
-            <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
-              {/* Left Editorial Guidance Column (5 cols) */}
-              <div className="space-y-6 lg:col-span-5">
-                <div>
-                  <p className="eyebrow-label text-sage-botanical">Skin Analysis Workspace</p>
-                  <h2
-                    id="analysis-heading"
-                    tabIndex={-1}
-                    className="mt-2.5 font-serif text-display-md font-normal text-ink focus:outline-none"
-                  >
-                    Begin with a clear daylight portrait.
-                  </h2>
-                  <p className="mt-3 text-sm leading-relaxed text-ink-secondary sm:text-base">
-                    YouCam AI Skin Analysis v2.1 evaluates visible complexion characteristics from a
-                    single front-facing photograph using a focused, verified action set.
-                  </p>
-                </div>
-
-                {/* Capture Preparation Checklist */}
-                <div className="rounded-editorial border border-stone-border bg-surface p-5">
-                  <h3 className="font-mono text-[11px] uppercase tracking-wider text-ink-secondary">
-                    Preparation for reliable readings
-                  </h3>
-                  <ul className="mt-3.5 space-y-2.5 text-xs leading-relaxed text-ink-secondary">
-                    <li className="flex items-start gap-2.5">
-                      <span className="mt-0.5 font-mono text-[11px] text-forest">01</span>
-                      <span>
-                        <strong className="font-medium text-ink">Even front light:</strong> Face a
-                        window or diffused daylight source; avoid strong overhead or side shadows.
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2.5">
-                      <span className="mt-0.5 font-mono text-[11px] text-forest">02</span>
-                      <span>
-                        <strong className="font-medium text-ink">Unobstructed forehead &amp; cheeks:</strong>{" "}
-                        Brush hair back from your forehead and remove spectacles if comfortable.
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2.5">
-                      <span className="mt-0.5 font-mono text-[11px] text-forest">03</span>
-                      <span>
-                        <strong className="font-medium text-ink">60–80% frame width:</strong> Keep
-                        your face centered, looking straight ahead with a relaxed expression.
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2.5">
-                      <span className="mt-0.5 font-mono text-[11px] text-forest">04</span>
-                      <span>
-                        <strong className="font-medium text-ink">Clean skin when practical:</strong>{" "}
-                        Foundation or tinted sunscreen masks natural tone and pore cues.
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Clearly Isolated Development Fixture & State Inspector */}
-                <Collapsible.Root
-                  open={qaDrawerOpen}
-                  onOpenChange={setQaDrawerOpen}
-                  className="rounded-editorial border border-stone-border bg-surface"
-                >
-                  <Collapsible.Trigger asChild>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-xs font-medium text-ink-secondary transition-colors hover:text-ink"
+        <ScrollReveal>
+          <section
+            id="analysis"
+            aria-labelledby="analysis-heading"
+            className="border-b border-stone-border bg-canvas py-16 sm:py-20 lg:py-24"
+          >
+            <div className="editorial-container">
+              <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
+                {/* Left Editorial Guidance Column (5 cols) */}
+                <div className="space-y-6 lg:col-span-5">
+                  <div>
+                    <p className="eyebrow-label text-sage-botanical">Skin Analysis Workspace</p>
+                    <h2
+                      id="analysis-heading"
+                      tabIndex={-1}
+                      className="mt-2.5 font-serif text-display-md font-normal text-ink focus:outline-none"
                     >
-                      <span className="inline-flex items-center gap-2">
-                        <FlaskConical className="h-3.5 w-3.5 text-clay" aria-hidden="true" />
-                        <span>Development Fixture &amp; State Preview</span>
-                      </span>
-                      <ChevronDown
-                        className={cn(
-                          "h-3.5 w-3.5 transition-transform duration-200",
-                          qaDrawerOpen && "rotate-180"
-                        )}
-                        aria-hidden="true"
-                      />
-                    </button>
-                  </Collapsible.Trigger>
-
-                  <Collapsible.Content className="border-t border-stone-border px-4 py-4 text-xs text-ink-secondary">
-                    <p className="leading-relaxed">
-                      Inspect documented YouCam JSON payloads and application error states without
-                      consuming live API units. All fixture outputs are explicitly labeled and kept
-                      separate from live scans.
+                      Begin with a clear daylight portrait.
+                    </h2>
+                    <p className="mt-3 text-sm leading-relaxed text-ink-secondary sm:text-base">
+                      YouCam AI Skin Analysis v2.1 evaluates visible complexion characteristics from
+                      a single front-facing photograph using a focused, verified action set.
                     </p>
+                  </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
+                  {/* Capture Preparation Checklist */}
+                  <div className="rounded-editorial border border-stone-border bg-surface p-5">
+                    <h3 className="font-mono text-[11px] uppercase tracking-wider text-ink-secondary">
+                      Preparation for reliable readings
+                    </h3>
+                    <ul className="mt-3.5 space-y-2.5 text-xs leading-relaxed text-ink-secondary">
+                      <li className="flex items-start gap-2.5">
+                        <span className="mt-0.5 font-mono text-[11px] text-forest">01</span>
+                        <span>
+                          <strong className="font-medium text-ink">Even front light:</strong> Face a
+                          window or diffused daylight source; avoid strong overhead or side shadows.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <span className="mt-0.5 font-mono text-[11px] text-forest">02</span>
+                        <span>
+                          <strong className="font-medium text-ink">
+                            Unobstructed forehead &amp; cheeks:
+                          </strong>{" "}
+                          Brush hair back from your forehead and remove spectacles if comfortable.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <span className="mt-0.5 font-mono text-[11px] text-forest">03</span>
+                        <span>
+                          <strong className="font-medium text-ink">60–80% frame width:</strong> Keep
+                          your face centered, looking straight ahead with a relaxed expression.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <span className="mt-0.5 font-mono text-[11px] text-forest">04</span>
+                        <span>
+                          <strong className="font-medium text-ink">Clean skin when practical:</strong>{" "}
+                          Foundation or tinted sunscreen masks natural tone and pore cues.
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Clearly Isolated Development Fixture & State Inspector */}
+                  <Collapsible.Root
+                    open={qaDrawerOpen}
+                    onOpenChange={setQaDrawerOpen}
+                    className="rounded-editorial border border-stone-border bg-surface"
+                  >
+                    <Collapsible.Trigger asChild>
                       <button
                         type="button"
-                        onClick={() => handleLoadFixture("hd-comprehensive")}
-                        className="rounded-editorial border border-stone-strong bg-canvas px-3 py-1.5 text-xs font-medium text-ink hover:bg-sage-soft/60"
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-xs font-medium text-ink-secondary transition-colors hover:text-ink"
                       >
-                        Load HD Multi-Zone Fixture
+                        <span className="inline-flex items-center gap-2">
+                          <FlaskConical className="h-3.5 w-3.5 text-clay" aria-hidden="true" />
+                          <span>Development Fixture &amp; State Preview</span>
+                        </span>
+                        <ChevronDown
+                          className={cn(
+                            "h-3.5 w-3.5 transition-transform duration-200",
+                            qaDrawerOpen && "rotate-180"
+                          )}
+                          aria-hidden="true"
+                        />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleLoadFixture("sd-partial")}
-                        className="rounded-editorial border border-stone-strong bg-canvas px-3 py-1.5 text-xs font-medium text-ink hover:bg-sage-soft/60"
-                      >
-                        Load Partial 4-Metric SD Fixture
-                      </button>
-                    </div>
+                    </Collapsible.Trigger>
 
-                    <div className="mt-3 border-t border-stone-border pt-3">
-                      <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
-                        Error &amp; Edge State Previews
+                    <Collapsible.Content className="border-t border-stone-border px-4 py-4 text-xs text-ink-secondary">
+                      <p className="leading-relaxed">
+                        Inspect documented YouCam JSON payloads and application error states without
+                        consuming live API units. All fixture outputs are explicitly labeled and kept
+                        separate from live scans.
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
+
+                      <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => handlePreviewErrorState("rate_limit")}
-                          className="rounded-editorial border border-stone-border bg-canvas px-2.5 py-1 text-[11px] text-ink-secondary hover:text-ink"
+                          onClick={() => handleLoadFixture("hd-comprehensive")}
+                          className="btn-editorial-secondary px-3 py-1.5 text-xs"
                         >
-                          Rate limit (429)
+                          Load HD Multi-Zone Fixture
                         </button>
                         <button
                           type="button"
-                          onClick={() => handlePreviewErrorState("expired")}
-                          className="rounded-editorial border border-stone-border bg-canvas px-2.5 py-1 text-[11px] text-ink-secondary hover:text-ink"
+                          onClick={() => handleLoadFixture("sd-partial")}
+                          className="btn-editorial-secondary px-3 py-1.5 text-xs"
                         >
-                          Expired result
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handlePreviewErrorState("framing")}
-                          className="rounded-editorial border border-stone-border bg-canvas px-2.5 py-1 text-[11px] text-ink-secondary hover:text-ink"
-                        >
-                          Face distance error
+                          Load Partial 4-Metric SD Fixture
                         </button>
                       </div>
-                    </div>
-                  </Collapsible.Content>
-                </Collapsible.Root>
-              </div>
 
-              {/* Right Interactive Uploader / Progress / Error Column (7 cols) */}
-              <div className="space-y-6 lg:col-span-7">
-                {isBusy && (
-                  <AnalysisProgress
-                    stage={workflowStatus === "submitting" ? "submitting" : "polling"}
+                      <div className="mt-3 border-t border-stone-border pt-3">
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+                          Error &amp; Edge State Previews
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handlePreviewErrorState("rate_limit")}
+                            className="rounded-editorial border border-stone-border bg-canvas px-2.5 py-1 text-[11px] text-ink-secondary hover:text-ink"
+                          >
+                            Rate limit (429)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePreviewErrorState("expired")}
+                            className="rounded-editorial border border-stone-border bg-canvas px-2.5 py-1 text-[11px] text-ink-secondary hover:text-ink"
+                          >
+                            Expired result
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePreviewErrorState("framing")}
+                            className="rounded-editorial border border-stone-border bg-canvas px-2.5 py-1 text-[11px] text-ink-secondary hover:text-ink"
+                          >
+                            Face distance error
+                          </button>
+                        </div>
+                      </div>
+                    </Collapsible.Content>
+                  </Collapsible.Root>
+                </div>
+
+                {/* Right Interactive Uploader / Progress / Error Column (7 cols) */}
+                <div className="space-y-6 lg:col-span-7">
+                  {isBusy && (
+                    <AnalysisProgress
+                      stage={workflowStatus === "submitting" ? "submitting" : "polling"}
+                      mode={mode}
+                      publicRef={activePublicRef}
+                      pollCount={pollCount}
+                      onCancel={cancelOngoingAnalysis}
+                    />
+                  )}
+
+                  {workflowStatus === "error" && analysisError && (
+                    <ErrorState
+                      key={`${analysisError.category}-${analysisError.code}`}
+                      error={analysisError}
+                      onRetry={retryAction}
+                      retryLabel={retryActionLabel}
+                      onReset={() => {
+                        setResumableTask(null);
+                        setActivePublicRef(null);
+                        setAnalysisError(null);
+                        setWorkflowStatus("idle");
+                      }}
+                      onLoadFixture={() => handleLoadFixture("hd-comprehensive")}
+                    />
+                  )}
+
+                  <SkinImageUploader
                     mode={mode}
-                    publicRef={activePublicRef}
-                    pollCount={pollCount}
-                    onCancel={cancelOngoingAnalysis}
-                  />
-                )}
-
-                {workflowStatus === "error" && analysisError && (
-                  <ErrorState
-                    key={`${analysisError.category}-${analysisError.code}`}
-                    error={analysisError}
-                    onRetry={retryAction}
-                    retryLabel={retryActionLabel}
-                    onReset={() => {
+                    onModeChange={(nextMode) => {
+                      setMode(nextMode);
                       setResumableTask(null);
-                      setActivePublicRef(null);
-                      setAnalysisError(null);
-                      setWorkflowStatus("idle");
                     }}
-                    onLoadFixture={() => handleLoadFixture("hd-comprehensive")}
+                    selectedImage={selectedImage}
+                    onImageChange={(next) => {
+                      setSelectedImage(next);
+                      setResumableTask(null);
+                      if (analysisError?.category === "validation") {
+                        setAnalysisError(null);
+                        setWorkflowStatus("idle");
+                      }
+                    }}
+                    onSubmitAnalysis={handleSubmitAnalysis}
+                    isBusy={isBusy}
+                    liveApiConfigured={liveApiConfigured}
                   />
-                )}
-
-                <SkinImageUploader
-                  mode={mode}
-                  onModeChange={(nextMode) => {
-                    setMode(nextMode);
-                    setResumableTask(null);
-                  }}
-                  selectedImage={selectedImage}
-                  onImageChange={(next) => {
-                    setSelectedImage(next);
-                    setResumableTask(null);
-                    if (analysisError?.category === "validation") {
-                      setAnalysisError(null);
-                      setWorkflowStatus("idle");
-                    }
-                  }}
-                  onSubmitAnalysis={handleSubmitAnalysis}
-                  isBusy={isBusy}
-                  liveApiConfigured={liveApiConfigured}
-                />
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
         {/* D. Personal Skin Insights */}
-        <section
-          id="insights"
-          aria-labelledby="insights-heading"
-          className="border-b border-stone-border bg-surface py-16 sm:py-20 lg:py-24"
-        >
-          <div className="editorial-container">
-            <div className="mb-8 border-b border-stone-border pb-6">
-              <p className="eyebrow-label text-sage-botanical">Personal Skin Insights</p>
-              <h2
-                id="insights-heading"
-                className="mt-2 font-serif text-display-md font-normal text-ink"
-              >
-                Optical observations &amp; zone interpretation
-              </h2>
+        <ScrollReveal>
+          <section
+            id="insights"
+            aria-labelledby="insights-heading"
+            className="border-b border-stone-border bg-surface py-16 sm:py-20 lg:py-24"
+          >
+            <div className="editorial-container">
+              <div className="mb-8 border-b border-stone-border pb-6">
+                <p className="eyebrow-label text-sage-botanical">Personal Skin Insights</p>
+                <h2
+                  id="insights-heading"
+                  className="mt-2 font-serif text-display-md font-normal text-ink"
+                >
+                  Optical observations &amp; zone interpretation
+                </h2>
+              </div>
+
+              {analysisResult ? (
+                <SkinResultsPanel
+                  result={analysisResult}
+                  analysedPortraitUrl={analysedPortraitUrl}
+                  hasUnanalysedLocalPreview={Boolean(selectedImage)}
+                  selectedThemes={selectedThemes}
+                  onToggleTheme={handleToggleTheme}
+                  onSelectRoutineCategory={setSelectedCategory}
+                  onStartOver={handleResetAnalysis}
+                />
+              ) : (
+                <EmptyState
+                  eyebrow="No Active Analysis Result"
+                  title="Complete a skin analysis to view your personal insights"
+                  description="Dew & Form never pre-populates production views with invented skin scores. Upload a front-facing portrait above and run 'Analyse my skin' when connected to YouCam—or load a clearly labeled documented YouCam sample fixture to explore how scores, facial sub-zones, and unreturned metrics are presented."
+                >
+                  <a
+                    href="#analysis"
+                    className="btn-editorial-primary min-h-[44px] px-5 py-2.5 text-xs"
+                  >
+                    Go to skin analysis workspace
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleLoadFixture("hd-comprehensive")}
+                    className="btn-editorial-secondary min-h-[44px] px-4 py-2.5 text-xs"
+                  >
+                    <FlaskConical className="h-3.5 w-3.5 text-clay" aria-hidden="true" />
+                    <span>Preview documented HD sample fixture</span>
+                  </button>
+                </EmptyState>
+              )}
             </div>
+          </section>
+        </ScrollReveal>
 
-            {analysisResult ? (
-              <SkinResultsPanel
-                result={analysisResult}
-                analysedPortraitUrl={analysedPortraitUrl}
-                hasUnanalysedLocalPreview={Boolean(selectedImage)}
-                selectedThemes={selectedThemes}
-                onToggleTheme={handleToggleTheme}
-                onSelectRoutineCategory={setSelectedCategory}
-                onStartOver={handleResetAnalysis}
-              />
-            ) : (
-              <EmptyState
-                eyebrow="No Active Analysis Result"
-                title="Complete a skin analysis to view your personal insights"
-                description="Dew & Form never pre-populates production views with invented skin scores. Upload a front-facing portrait above and run 'Analyse my skin' when connected to YouCam—or load a clearly labeled documented YouCam sample fixture to explore how scores, facial sub-zones, and unreturned metrics are presented."
-              >
-                <a
-                  href="#analysis"
-                  className="inline-flex min-h-[44px] items-center rounded-editorial bg-forest px-5 py-2.5 text-xs font-medium text-surface transition-colors hover:bg-forest-hover"
-                >
-                  Go to skin analysis workspace
-                </a>
-                <button
-                  type="button"
-                  onClick={() => handleLoadFixture("hd-comprehensive")}
-                  className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial border border-stone-strong bg-canvas px-4 py-2.5 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/60"
-                >
-                  <FlaskConical className="h-3.5 w-3.5 text-clay" aria-hidden="true" />
-                  <span>Preview documented HD sample fixture</span>
-                </button>
-              </EmptyState>
-            )}
-          </div>
-        </section>
+        {/* E. Skincare Product Discovery & Ingredient Transparency */}
+        <ScrollReveal>
+          <ProductDiscoverySection
+            connectedProducts={connectedProducts}
+            registryConnected={registryConnected}
+            registryLoading={registryLoading}
+            activeRegistryQuery={activeRegistryQuery}
+            onSearchRegistry={handleSearchRegistry}
+            userShelfProducts={userShelfProducts}
+            referenceFixtures={REFERENCE_FORMULATION_FIXTURES}
+            showReferenceFixtures={showReferenceFixtures}
+            onToggleReferenceFixtures={setShowReferenceFixtures}
+            selectedThemes={selectedThemes}
+            onToggleTheme={handleToggleTheme}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            comparedIds={comparedIds}
+            onToggleCompare={handleToggleCompare}
+            onInspectProduct={handleInspectProduct}
+            onCheckSuitability={handleSendToProductCheck}
+            onOpenShelfModal={() => setShelfModalOpen(true)}
+          />
+        </ScrollReveal>
 
-        {/* E & F. Skincare Product Discovery & Ingredient Transparency */}
-        <ProductDiscoverySection
-          connectedProducts={connectedProducts}
-          registryConnected={registryConnected}
-          registryLoading={registryLoading}
-          activeRegistryQuery={activeRegistryQuery}
-          onSearchRegistry={handleSearchRegistry}
-          userShelfProducts={userShelfProducts}
-          referenceFixtures={REFERENCE_FORMULATION_FIXTURES}
-          showReferenceFixtures={showReferenceFixtures}
-          onToggleReferenceFixtures={setShowReferenceFixtures}
-          selectedThemes={selectedThemes}
-          onToggleTheme={handleToggleTheme}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          comparedIds={comparedIds}
-          onToggleCompare={handleToggleCompare}
-          onInspectProduct={handleInspectProduct}
-          onOpenShelfModal={() => setShelfModalOpen(true)}
-        />
+        {/* F. Signature Feature: Dew & Form Product Check */}
+        <ScrollReveal>
+          <ProductCheckSection
+            key={seedCheckGeneration}
+            catalogueProducts={allAvailableProducts}
+            morningRoutineProducts={morningProducts}
+            eveningRoutineProducts={eveningProducts}
+            personalProfile={personalProfile}
+            onUpdatePersonalProfile={updatePersonalProfile}
+            genuineAnalysisResult={genuineYouCamScan}
+            externalSeedProduct={seedProductForCheck}
+            onCompareEvaluatedProduct={handleCompareEvaluatedProduct}
+            onAddToRoutine={(prod, slot) => handleAddToSavedRoutine(prod, slot)}
+            onInspectMonographs={handleInspectProduct}
+            onVerdictGenerated={(verdictTitle, prodName) =>
+              triggerDelight({
+                title: `Product Check: ${verdictTitle}`,
+                detail: `Completed evidence-based evaluation for ${prodName}.`,
+              })
+            }
+          />
+        </ScrollReveal>
 
-        {/* G. Side-by-Side Product Comparison */}
-        <ProductComparison
-          comparedProducts={comparedProducts}
-          selectedThemes={selectedThemes}
-          onRemoveFromCompare={handleToggleCompare}
-          onClearComparison={() => setComparedIds([])}
-          onInspectProduct={(prod) => handleInspectProduct(prod)}
-        />
+        {/* G. Upgraded Side-by-Side Product Comparison */}
+        <ScrollReveal>
+          <ProductComparison
+            comparedProducts={comparedProducts}
+            selectedThemes={selectedThemes}
+            personalProfile={personalProfile}
+            onRemoveFromCompare={handleToggleCompare}
+            onClearComparison={() => setComparedIds([])}
+            onInspectProduct={(prod) => handleInspectProduct(prod)}
+          />
+        </ScrollReveal>
+
+        {/* H. Lightweight Persistent "My Routine" Workspace */}
+        <ScrollReveal>
+          <MyRoutineSection
+            morningProducts={morningProducts}
+            eveningProducts={eveningProducts}
+            catalogueProducts={allAvailableProducts}
+            updatedAt={routineUpdatedAt}
+            onAddProduct={handleAddToSavedRoutine}
+            onRemoveProduct={removeProductFromRoutine}
+            onClearRoutine={clearSavedRoutineAndProfile}
+            onInspectIngredients={(prod) => handleInspectProduct(prod)}
+            onCheckRoutineProduct={handleSendToProductCheck}
+          />
+        </ScrollReveal>
       </main>
 
       {/* Subtle Floating Compare Tray Pill when 1+ Formulations Selected */}
@@ -1052,7 +1239,7 @@ export function DewAndFormExperience() {
             </span>
             <a
               href="#comparison"
-              className="rounded-editorial bg-forest px-3.5 py-1.5 text-xs font-medium text-surface transition-colors hover:bg-forest-hover"
+              className="btn-editorial-primary px-3.5 py-1.5 text-xs"
             >
               {comparedProducts.length >= 2 ? "View comparison" : "Comparison tray"}
             </a>
@@ -1071,7 +1258,8 @@ export function DewAndFormExperience() {
               </p>
               <p className="mt-4 max-w-sm text-xs leading-relaxed text-ink-secondary">
                 A considered approach to skincare discovery—combining optical AI skin observations,
-                transparent INCI monographs, and restrained side-by-side formulation assessment.
+                evidence-based Product Check evaluations, transparent INCI monographs, and calm
+                routine planning.
               </p>
             </div>
 
@@ -1091,13 +1279,13 @@ export function DewAndFormExperience() {
                   </a>
                 </li>
                 <li>
-                  <a href="#insights" className="hover:text-ink">
-                    Personal Skin Insights
+                  <a href="#discovery" className="hover:text-ink">
+                    Formulations &amp; INCI Library
                   </a>
                 </li>
                 <li>
-                  <a href="#discovery" className="hover:text-ink">
-                    Formulations &amp; INCI Library
+                  <a href="#product-check" className="hover:text-ink">
+                    Dew &amp; Form Product Check
                   </a>
                 </li>
                 <li>
@@ -1106,12 +1294,17 @@ export function DewAndFormExperience() {
                   </a>
                 </li>
                 <li>
+                  <a href="#my-routine" className="hover:text-ink">
+                    My Routine (AM &amp; PM)
+                  </a>
+                </li>
+                <li>
                   <button
                     type="button"
                     onClick={handleTakeTour}
                     className="text-left text-forest underline decoration-forest/35 underline-offset-4 hover:text-forest-hover"
                   >
-                    Replay guided tour
+                    Replay 5-step guided tour
                   </button>
                 </li>
               </ul>
@@ -1124,15 +1317,20 @@ export function DewAndFormExperience() {
               <p className="mt-3 text-xs leading-relaxed text-ink-secondary">
                 Skin analysis metrics are optical estimates generated via Perfect Corp&apos;s YouCam
                 AI Skin Analysis v2.1 API and do not constitute medical, clinical, or dermatological
-                advice. Ingredient roles reference European Commission CosIng nomenclature and
-                published Cosmetic Ingredient Review (CIR) literature. Always patch test new topical
-                products and consult a dermatologist for persistent skin conditions.
+                advice. Product Check and monograph roles reference European Commission CosIng
+                nomenclature and published Cosmetic Ingredient Review (CIR) literature at the
+                ingredient level rather than clinical proof of finished formulations. Always patch
+                test new topical products and consult a dermatologist for persistent skin
+                conditions.
               </p>
             </div>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-[11px] text-ink-muted">
-            <p>&copy; {new Date().getFullYear()} Dew &amp; Form. Built for YouCam AI Skin Analysis v2.1.</p>
+            <p>
+              &copy; {new Date().getFullYear()} Dew &amp; Form. Built for YouCam AI Skin Analysis
+              v2.1 &amp; Open INCI Transparency.
+            </p>
             <p className="font-mono">
               Server-proxied S2S v2.1 architecture &middot; Zero client-exposed secrets
             </p>
@@ -1140,7 +1338,7 @@ export function DewAndFormExperience() {
         </div>
       </footer>
 
-      {/* First-Time Visitor Interactive Multi-Step Onboarding Modal */}
+      {/* First-Time Visitor Interactive 5-Step Onboarding Modal */}
       <OnboardingTour
         key={onboardingReplayGeneration}
         open={isOnboardingOpen}
@@ -1148,6 +1346,8 @@ export function DewAndFormExperience() {
         onFinish={completeOnboarding}
         onNavigateToAnalysis={handleOnboardingToAnalysis}
         onNavigateToDiscovery={handleOnboardingToDiscovery}
+        onNavigateToProductCheck={handleOnboardingToProductCheck}
+        onNavigateToRoutine={handleOnboardingToRoutine}
         onOpenIngredientsWorkspace={handleOnboardingToIngredients}
         onOpenShelfInspector={handleOnboardingToShelfInspector}
       />

@@ -24,13 +24,13 @@ export function ApproachSection() {
               actually documents, and what remains a matter of personal skin tolerance.
             </p>
 
-            <figure className="mt-8 border border-stone-border bg-canvas p-3">
+            <figure className="editorial-plate-frame mt-8 border border-stone-border bg-canvas p-3 transition-colors duration-200 hover:border-stone-strong">
               <div className="aspect-[16/10] overflow-hidden bg-canvas-subtle">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/images/editorial-botanical.jpg"
                   alt="Close-up texture swatch of translucent hydrating gel-cream and water droplets across warm travertine stone and matte porcelain."
-                  className="h-full w-full object-cover"
+                  className="editorial-plate-zoom h-full w-full object-cover"
                 />
               </div>
               <figcaption className="mt-2.5 text-xs leading-relaxed text-ink-secondary">

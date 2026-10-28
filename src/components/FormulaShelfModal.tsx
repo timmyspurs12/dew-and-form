@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Plus, X } from "lucide-react";
-import { parseInciDeclaration } from "@/lib/ingredients/catalog";
+import { isFeaturedKeyMonograph, parseInciDeclaration } from "@/lib/ingredients/catalog";
 import type {
   FormulationAttribute,
   FormulationCategory,
@@ -70,7 +70,7 @@ export function FormulaShelfModal({
     const parsed = parseInciDeclaration(inciDeclaration);
     const matchedMonographs = parsed
       .map((p) => p.monograph)
-      .filter((m): m is NonNullable<typeof m> => m !== null);
+      .filter((m): m is NonNullable<typeof m> => m !== null && isFeaturedKeyMonograph(m));
 
     const uniqueKeyIngredients = Array.from(
       new Set(matchedMonographs.map((m) => m.commonName.split(" (")[0]))

@@ -360,7 +360,275 @@ export const INGREDIENT_MONOGRAPHS: IngredientMonograph[] = [
       "Water-containing formulas require a broad-spectrum preservative system to remain microbiologically safe.",
     relatedThemes: [],
   },
+  {
+    id: "glycolic-acid",
+    inciName: "GLYCOLIC ACID",
+    commonName: "Glycolic Acid (AHA)",
+    aliases: ["hydroxyacetic acid"],
+    statedRoles: ["Keratolytic", "Buffering", "Skin conditioning"],
+    plainDescription:
+      "The smallest-molecular-weight alpha-hydroxy acid, used in leave-on toners, serums, and peels to loosen dead surface corneocytes and brighten dull-looking texture.",
+    evidenceSummary:
+      "CIR Expert Panel evaluations document keratolytic renewal activity in leave-on cosmetics (commonly 4%–10% at pH 3.5–4.0), alongside increased UV erythema sensitivity without photoprotection.",
+    sourceAttribution:
+      "European Commission CosIng Database; CIR Safety Assessment of Glycolic Acid, Ammonium, Calcium, Potassium, and Sodium Glycolates.",
+    limitations:
+      "Exfoliating intensity depends heavily on free-acid pH and total concentration, neither of which is disclosed on an INCI label. Smaller molecular size can sting reactive barriers faster than lactic acid.",
+    relatedThemes: ["surface-smoothing", "tone-luminosity"],
+    cautionNote:
+      "Increases sun sensitivity—pair with daily broad-spectrum SPF 30+ and avoid stacking with other exfoliating acids or retinoids in the same evening.",
+  },
+  {
+    id: "benzoyl-peroxide",
+    inciName: "BENZOYL PEROXIDE",
+    commonName: "Benzoyl Peroxide",
+    aliases: ["bpo"],
+    statedRoles: ["Antimicrobial", "Keratolytic"],
+    plainDescription:
+      "An oxidizing keratolytic and antibacterial agent widely used in blemish washes and spot treatments (regulated as an OTC acne active in the US and restricted in EU cosmetics).",
+    evidenceSummary:
+      "Well-established in dermatological monographs (commonly 2.5%–5%) for targeting surface congestion; lower strengths (2.5%) often show comparable cosmetic benefit with less dryness than 10%.",
+    sourceAttribution:
+      "European Commission CosIng Database (Annex III/II regulatory restrictions vary by jurisdiction); US FDA OTC Topical Acne Monograph context.",
+    limitations:
+      "Can cause dryness, peeling, and contact irritation, and bleaches coloured towels and pillowcases. Can oxidize tretinoin or pure L-ascorbic acid if layered directly together.",
+    relatedThemes: ["sebum-pore-refinement"],
+    cautionNote:
+      "Separate from leave-on retinoids and pure Vitamin C, rinse thoroughly if using a wash, and moisturise afterwards.",
+  },
+  {
+    id: "bakuchiol",
+    inciName: "BAKUCHIOL",
+    commonName: "Bakuchiol",
+    aliases: ["psoralea corylifolia extract"],
+    statedRoles: ["Antioxidant", "Skin conditioning", "Emollient", "Antimicrobial"],
+    plainDescription:
+      "A purified meroterpene phenol isolated from Babchi (Psoralea corylifolia) seeds, used in morning and evening serums to support smoother texture and tone.",
+    evidenceSummary:
+      "Small comparative cosmetic studies (typically at 0.5%–1.0%) report improvements in fine line and pigment appearance with lower flaking than traditional retinol, though independent trial volume remains smaller.",
+    sourceAttribution:
+      "European Commission CosIng Database; peer-reviewed cosmetic dermatology literature on topical bakuchiol.",
+    limitations:
+      "Whole unpurified Babchi seed oils may contain phototoxic psoralens—INCI alone does not confirm purification grade unless stated by the manufacturer.",
+    relatedThemes: ["well-ageing-support", "tone-luminosity", "gentle-soothing"],
+  },
+  {
+    id: "peptides-complex",
+    inciName: "PALMITOYL TRIPEPTIDE-1",
+    commonName: "Conditioning Peptides",
+    aliases: [
+      "palmitoyl tetrapeptide-7",
+      "acetyl hexapeptide-8",
+      "palmitoyl pentapeptide-4",
+      "copper tripeptide-1",
+    ],
+    statedRoles: ["Skin conditioning", "Humectant"],
+    plainDescription:
+      "Short synthetic amino-acid chains formulated as water-binding, skin-conditioning hydrators in plumping serums and barrier creams.",
+    evidenceSummary:
+      "Documented primarily as effective surface humectants and skin-conditioning agents; supplier in-vitro signaling claims vary considerably across finished vehicles.",
+    sourceAttribution:
+      "European Commission CosIng Database; CIR Safety Assessment of Palmitoyl Oligopeptides.",
+    limitations:
+      "Typically used at parts-per-million levels (<0.01%); stratum corneum penetration and finished-formula stability cannot be verified from INCI placement alone.",
+    relatedThemes: ["hydration-support", "well-ageing-support"],
+  },
+  {
+    id: "urea",
+    inciName: "UREA",
+    commonName: "Urea",
+    aliases: ["carbamide", "hydroxyethyl urea"],
+    statedRoles: ["Humectant", "Skin conditioning", "Buffering", "Keratolytic"],
+    plainDescription:
+      "An endogenous component of the skin's natural moisturizing factor (NMF). At low cosmetic levels (2%–5%) it hydrates dry skin; at higher levels (10%+) it softens rough, flaky buildup.",
+    evidenceSummary:
+      "Extensively documented in dermatological emollient therapy for improving stratum corneum hydration and flexibility.",
+    sourceAttribution:
+      "European Commission CosIng Database; CIR Safety Assessment of Urea.",
+    limitations:
+      "Concentration completely changes its behaviour (gentle facial humectant at <=5% vs strong foot/body keratolytic at 10%–20%), which INCI order only roughly suggests.",
+    relatedThemes: ["hydration-support", "surface-smoothing"],
+  },
+  {
+    id: "shea-butter",
+    inciName: "BUTYROSPERMUM PARKII BUTTER",
+    commonName: "Shea Butter",
+    aliases: ["butyrospermum parkii", "vitellaria paradoxa butter"],
+    statedRoles: ["Skin conditioning", "Viscosity controlling", "Emollient"],
+    plainDescription:
+      "A rich plant lipid butter composed of stearic and oleic triglycerides alongside unsaponifiable triterpenes, used to cushion dry, wind-exposed skin.",
+    evidenceSummary:
+      "Well-established occlusive-emollient conditioning lipid in barrier creams and balms.",
+    sourceAttribution:
+      "European Commission CosIng Database; CIR Safety Assessment of Plant-Derived Fatty Acid Oils and Butters.",
+    limitations:
+      "Rich lipid weight may feel heavy on very oily T-zones depending on how much is used in the emulsion.",
+    relatedThemes: ["hydration-support", "gentle-soothing"],
+  },
+  {
+    id: "alcohol-denat",
+    inciName: "ALCOHOL DENAT.",
+    commonName: "Denatured Alcohol",
+    aliases: ["sd alcohol 40-b", "denatured alcohol", "isopropyl alcohol"],
+    statedRoles: ["Solvent", "Astringent", "Viscosity controlling", "Antimicrobial"],
+    plainDescription:
+      "Volatile short-chain ethanol used to dissolve UV filters or botanical extracts, create weightless quick-dry fluid textures, and impart an immediate matte finish.",
+    evidenceSummary:
+      "Safe as a cosmetic solvent, particularly in high-protection European fluid sunscreens, though high concentrations can disrupt surface lipids and sting compromised or rosacea-prone skin.",
+    sourceAttribution:
+      "European Commission CosIng Database; CIR Safety Assessment of Ethanol and Denatured Alcohol.",
+    limitations:
+      "Position matters: appearing in the top 5 INCI entries indicates a major volatile solvent base, whereas tail placement reflects trace extract carryover.",
+    relatedThemes: [],
+    cautionNote:
+      "Dry, barrier-impaired, or redness-prone skin may prefer denatured-alcohol-free leave-on hydrators.",
+  },
+  {
+    id: "parfum-fragrance",
+    inciName: "PARFUM",
+    commonName: "Fragrance / Parfum & Aroma Compounds",
+    aliases: [
+      "fragrance",
+      "aroma",
+      "linalool",
+      "limonene",
+      "citronellol",
+      "geraniol",
+      "eugenol",
+      "citral",
+      "coumarin",
+      "hexyl cinnamal",
+      "benzyl salicylate",
+    ],
+    statedRoles: ["Perfuming", "Masking", "Deodorising"],
+    plainDescription:
+      "Synthetic or natural aromatic blends and individual fragrance constituents added to give skincare products a pleasant scent or mask raw base odours.",
+    evidenceSummary:
+      "Fragrance mixes and oxidized terpene constituents (such as linalool and limonene hydroperoxides) represent one of the most frequent documented causes of cosmetic allergic contact dermatitis in patch-test registries.",
+    sourceAttribution:
+      "European Commission CosIng Database; EU Cosmetics Regulation (EC) No 1223/2009 Annex III fragrance allergen labelling rules; SCCS Opinion on Fragrance Allergens.",
+    limitations:
+      "Umbrella 'Parfum / Fragrance' declarations can represent dozens of undisclosed aromatic molecules without individual concentrations.",
+    relatedThemes: [],
+    cautionNote:
+      "Avoid if you have known fragrance allergies, active eczema, or easily reactive facial skin.",
+  },
+  {
+    id: "essential-oils",
+    inciName: "LAVANDULA ANGUSTIFOLIA OIL",
+    commonName: "Volatile Essential Oils",
+    aliases: [
+      "lavender oil",
+      "melaleuca alternifolia leaf oil",
+      "tea tree oil",
+      "mentha piperita oil",
+      "peppermint oil",
+      "eucalyptus globulus leaf oil",
+      "rosmarinus officinalis leaf oil",
+      "citrus aurantium dulcis peel oil",
+      "citrus limon peel oil",
+      "citrus aurantium bergamia fruit oil",
+    ],
+    statedRoles: ["Perfuming", "Toning", "Masking"],
+    plainDescription:
+      "Steam-distilled or cold-pressed volatile plant oils rich in aromatic terpenes (linalool, limonene, cineole, menthol).",
+    evidenceSummary:
+      "Natural origin does not equate to low sensitizing potential; volatile citrus and lavender oils contain regulated fragrance allergens, and cold-pressed bergamot/citrus oils may contain phototoxic furanocoumarins unless FCF-rectified.",
+    sourceAttribution:
+      "European Commission CosIng Database; SCCS Fragrance Allergen Opinions; CIR Plant Essential Oil Safety Reviews.",
+    limitations:
+      "Even 'unscented' products marketed without synthetic parfum sometimes use essential oils for masking—always check the INCI tail.",
+    relatedThemes: [],
+    cautionNote:
+      "Patch test carefully; sensitive or redness-prone routines generally fare better without volatile essential oils.",
+  },
+  {
+    id: "zinc-oxide",
+    inciName: "ZINC OXIDE",
+    commonName: "Zinc Oxide (Mineral UV Filter)",
+    aliases: ["titanium dioxide"],
+    statedRoles: ["UV filter", "UV absorber", "Skin protecting", "Bulking"],
+    plainDescription:
+      "An inorganic mineral UV filter and soothing skin protectant used in broad-spectrum sunscreens and calming barrier pastes.",
+    evidenceSummary:
+      "Authorized broad-spectrum UVA/UVB filter (up to 25% in EU Annex VI / US OTC Sunscreen Monograph) with very low sensitization potential on sensitive skin.",
+    sourceAttribution:
+      "European Commission CosIng Database (Annex VI UV Filters); SCCS & US FDA Sunscreen Monograph records.",
+    limitations:
+      "True SPF and UVA-PF protection depend on total filter concentration, dispersion uniformity, and film-forming vehicle—never infer SPF rating from ingredient presence alone.",
+    relatedThemes: ["gentle-soothing", "tone-luminosity", "well-ageing-support"],
+  },
+  {
+    id: "modern-uv-filters",
+    inciName: "BIS-ETHYLHEXYLOXYPHENOL METHOXYPHENYL TRIAZINE",
+    commonName: "Organic Broad-Spectrum UV Filters",
+    aliases: [
+      "ethylhexyl triazone",
+      "diethylamino hydroxybenzoyl hexyl benzoate",
+      "butyl methoxydibenzoylmethane",
+      "avobenzone",
+      "homosalate",
+      "octocrylene",
+      "ethylhexyl salicylate",
+    ],
+    statedRoles: ["UV filter", "UV absorber"],
+    plainDescription:
+      "Oil- or water-soluble organic UV-absorbing molecules formulated into fluid sunscreens to absorb UVA and/or UVB radiation without heavy mineral white cast.",
+    evidenceSummary:
+      "Regulated strictly under region-specific positive lists (such as EU Regulation 1223/2009 Annex VI) with defined maximum concentration caps.",
+    sourceAttribution:
+      "European Commission CosIng Database (Annex VI Authorized UV Filters).",
+    limitations:
+      "Sunscreen efficacy requires standardized in-vivo ISO 24444 / 24442 testing of the finished product and generous application (approx. 2 mg/cm²).",
+    relatedThemes: ["tone-luminosity", "well-ageing-support"],
+  },
+  {
+    id: "phenoxyethanol",
+    inciName: "PHENOXYETHANOL",
+    commonName: "Phenoxyethanol",
+    aliases: ["ethylhexylglycerin"],
+    statedRoles: ["Preservative"],
+    plainDescription:
+      "A widely used broad-spectrum cosmetic preservative that prevents bacterial and fungal contamination in water-based serums, creams, and cleansers.",
+    evidenceSummary:
+      "Evaluated as safe for cosmetic use up to a maximum concentration of 1.0% by both the European SCCS and the CIR Expert Panel.",
+    sourceAttribution:
+      "European Commission CosIng Database (Annex V Preservatives, max 1.0%); SCCS Opinion on Phenoxyethanol (SCCS/1575/16).",
+    limitations:
+      "Rarely causes mild transient warmth on acutely compromised barriers, though microbiological preservation is essential in any water-containing formula.",
+    relatedThemes: [],
+  },
+  {
+    id: "anionic-sulfates",
+    inciName: "SODIUM LAURYL SULFATE",
+    commonName: "Anionic Sulfate Surfactants (SLS / SLES)",
+    aliases: ["sodium laureth sulfate", "ammonium lauryl sulfate"],
+    statedRoles: ["Surfactant — cleansing", "Foaming", "Emulsifying"],
+    plainDescription:
+      "High-foaming anionic cleansing surfactants used in rinse-off washes to lift oil and debris.",
+    evidenceSummary:
+      "Sodium Lauryl Sulfate (SLS) is a known stratum corneum protein/lipid irritant at higher leave-on or prolonged concentrations; ethoxylated Sodium Laureth Sulfate (SLES) and co-surfactant blends are milder in brief rinse-off cleansers.",
+    sourceAttribution:
+      "European Commission CosIng Database; CIR Final Report on Sodium Lauryl Sulfate and Sodium Laureth Sulfate.",
+    limitations:
+      "Presence in a rinse-off cleanser can feel stripping on dry or sensitive skin unless buffered with amphoteric surfactants and humectants.",
+    relatedThemes: [],
+    cautionNote:
+      "Dry, tight, or redness-prone complexions often prefer non-ionic glucoside or amino-acid cleansers over SLS-based washes.",
+  },
 ];
+
+export function isFeaturedKeyMonograph(monograph: IngredientMonograph): boolean {
+  const excludedIds = new Set([
+    "aqua",
+    "phenoxyethanol",
+    "alcohol-denat",
+    "parfum-fragrance",
+    "essential-oils",
+    "anionic-sulfates",
+  ]);
+  return !excludedIds.has(monograph.id);
+}
 
 function normalizeToken(raw: string): string {
   return raw

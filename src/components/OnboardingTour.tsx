@@ -7,7 +7,9 @@ import {
   ArrowRight,
   ArrowUpRight,
   BookOpen,
+  CalendarHeart,
   Check,
+  ClipboardCheck,
   ClipboardList,
   Scale,
   ScanFace,
@@ -22,6 +24,8 @@ export interface OnboardingTourProps {
   onFinish: () => void;
   onNavigateToAnalysis: () => void;
   onNavigateToDiscovery: () => void;
+  onNavigateToProductCheck?: () => void;
+  onNavigateToRoutine?: () => void;
   onOpenIngredientsWorkspace: () => void;
   onOpenShelfInspector: () => void;
 }
@@ -54,21 +58,21 @@ const ONBOARDING_STEPS: readonly OnboardingStepConfig[] = [
     eyebrow: "Step 01 — Welcome to Dew & Form",
     heading: "Find your skin’s kind of care.",
     description:
-      "Dew & Form brings together optical skin observation, public ingredient records, and calm side-by-side comparison so you can understand your skin, explore skincare products, and make more informed routine decisions.",
+      "Dew & Form brings together optical skin observation, public INCI ingredient records, evidence-based Product Check evaluations, and calm side-by-side comparison so you can make thoughtful skincare decisions without hype.",
     supportingDetail:
-      "Use Next below to preview each studio workspace in place, or skip straight to the website whenever you are ready.",
+      "Use Next below to preview all five studio steps in place, or skip straight to the website whenever you are ready.",
     highlights: [
       {
         code: "01",
-        text: "Observe visible complexion characteristics from a clear daylight portrait.",
+        text: "Observe visible complexion cues from a clear daylight portrait via YouCam v2.1.",
       },
       {
         code: "02",
-        text: "Explore real skincare formulations and compare disclosed product details.",
+        text: "Explore verified cosmetic INCI declarations and compare formulations side by side.",
       },
       {
         code: "03",
-        text: "Inspect INCI ingredient lists, documented roles, and label limitations.",
+        text: "Run Product Check for honest suitability verdicts and save a calm AM/PM routine.",
       },
     ],
     imageSrc: "/images/editorial-hero.jpg",
@@ -81,12 +85,12 @@ const ONBOARDING_STEPS: readonly OnboardingStepConfig[] = [
     stepNumber: 2,
     navLabel: "Skin Analysis",
     ariaStepTitle: "Skin Analysis",
-    eyebrow: "Step 02 — Skin Analysis",
+    eyebrow: "Step 02 — Understand Your Skin",
     heading: "Skin Analysis",
     description:
-      "Upload a clear, front-facing daylight face photo in the Skin Analysis Workspace to receive AI-assisted skin-analysis results through Dew & Form’s server-proxied YouCam AI Skin Analysis v2.1 integration.",
+      "Upload a clear, front-facing daylight face photo in the Skin Analysis Workspace to receive AI-assisted skin observations through Dew & Form’s server-proxied YouCam AI Skin Analysis v2.1 integration.",
     supportingDetail:
-      "Reviewing visible complexion cues—such as overall skin type, oiliness, pores, radiance, and facial zone overlays—helps you explore where to focus your routine. Readings are non-clinical optical estimates shaped by image lighting, framing, and supported SD or HD actions.",
+      "Reviewing visible complexion cues—such as overall skin type, oiliness, pores, radiance, and facial zone overlays—helps focus your routine. Readings are non-clinical optical estimates shaped by lighting, framing, and supported SD or HD actions.",
     highlights: [
       {
         code: "SD / HD",
@@ -107,12 +111,12 @@ const ONBOARDING_STEPS: readonly OnboardingStepConfig[] = [
     stepNumber: 3,
     navLabel: "Discovery",
     ariaStepTitle: "Product Discovery & Comparison",
-    eyebrow: "Step 03 — Product Discovery & Comparison",
+    eyebrow: "Step 03 — Explore Products & Comparisons",
     heading: "Product Discovery & Comparison",
     description:
       "Discover skincare formulations from the Open Beauty Facts registry and non-commercial reference archetypes by category, keyword, barcode, label attributes, or routine care themes.",
     supportingDetail:
-      "Select up to three products with Compare on any card to review the information actually available—including declared INCI lists, shared ingredients, functional roles, routine step, and disclosed price when listed—without synthetic match scores.",
+      "Select two or three products with Compare on any card to review declared INCI differences, shared ingredients, goal alignment, sensitivity triggers, verified price when available, and data completeness—without synthetic match scores.",
     highlights: [
       {
         code: "SEARCH",
@@ -120,7 +124,7 @@ const ONBOARDING_STEPS: readonly OnboardingStepConfig[] = [
       },
       {
         code: "COMPARE",
-        text: "Evaluate 2–3 formulations side by side in the Comparison Matrix.",
+        text: "Evaluate 2–3 formulations side by side in the upgraded Comparison Matrix.",
       },
     ],
     imageSrc: "/images/vessel-emulsion.jpg",
@@ -131,29 +135,55 @@ const ONBOARDING_STEPS: readonly OnboardingStepConfig[] = [
   },
   {
     stepNumber: 4,
-    navLabel: "Ingredients",
-    ariaStepTitle: "Ingredient Explorer & Product Check",
-    eyebrow: "Step 04 — Ingredient Explorer & Product Check",
-    heading: "Ingredient Explorer & Product Check",
+    navLabel: "Product Check",
+    ariaStepTitle: "Product Check & Ingredient Suitability",
+    eyebrow: "Step 04 — Check Ingredients & Suitability",
+    heading: "Dew & Form Product Check",
     description:
-      "Inspect INCI ingredient lists, understand documented European Commission CosIng functions and CIR evidence summaries, and evaluate whether a formulation aligns with your routine focus areas when sufficient product data is available.",
+      "Check whether a skincare product is a Good potential fit, raises Some concerns, or has Not enough information using catalogue lookup, pasted INCI text, safe product URLs, or label photographs.",
     supportingDetail:
-      "Browse 22 reference monographs in the Ingredient Explorer, or paste a label INCI declaration into the Shelf INCI Inspector to check a product you already own—while seeing clearly what standard labels omit, such as exact active percentages and pH.",
+      "Confirm product identity before evaluation, optionally add your goals, sensitivities, and budget, and inspect 35 European Commission CosIng / CIR ingredient monographs—while seeing clearly what standard labels omit, such as active percentages and pH.",
     highlights: [
       {
-        code: "INCI",
-        text: "Search documented humectants, barrier lipids, soothing agents, and exfoliants.",
+        code: "VERDICT",
+        text: "Plain-language suitability verdict with claim substantiation and routine conflict checks.",
       },
       {
-        code: "SHELF",
-        text: "Paste a product’s packaging INCI list to parse recognised actives and compare it.",
+        code: "INCI",
+        text: "Distinguishes confirmed packaging labels from crowd-sourced records and finished-formula proof.",
       },
     ],
     imageSrc: "/images/vessel-cleanser.jpg",
     imageAlt:
       "Minimal apothecary cleanser vessel beside honed travertine stone in diffused daylight.",
     plateCode: "Plate 04",
-    plateCaption: "CosIng ingredient monographs & shelf INCI inspection.",
+    plateCaption: "Evidence-based Product Check & CosIng monographs.",
+  },
+  {
+    stepNumber: 5,
+    navLabel: "My Routine",
+    ariaStepTitle: "Build a Simple Skincare Routine",
+    eyebrow: "Step 05 — Optional AM & PM Routine",
+    heading: "My Routine",
+    description:
+      "Optionally assemble and save a lightweight Morning and Evening routine in your browser using products you already own alongside verified catalogue formulations.",
+    supportingDetail:
+      "Dew & Form orders steps by texture, explains each product’s cosmetic role, and flags active layering cautions—such as pairing exfoliating acids with retinoids on the same night—without pushing unnecessary purchases.",
+    highlights: [
+      {
+        code: "OWNED",
+        text: "Log staples you already have at home; empty slots never push extra purchases.",
+      },
+      {
+        code: "PACING",
+        text: "Automatic compatibility checks for AHA/BHA + retinoid stacking and daytime SPF support.",
+      },
+    ],
+    imageSrc: "/images/vessel-placeholder.jpg",
+    imageAlt:
+      "Quiet ceramic vessels arranged along warm travertine stone representing a calm morning and evening routine.",
+    plateCode: "Plate 05",
+    plateCaption: "Saved locally in your browser · No account required.",
   },
 ] as const;
 
@@ -165,6 +195,8 @@ export function OnboardingTour({
   onFinish,
   onNavigateToAnalysis,
   onNavigateToDiscovery,
+  onNavigateToProductCheck,
+  onNavigateToRoutine,
   onOpenIngredientsWorkspace,
   onOpenShelfInspector,
 }: OnboardingTourProps) {
@@ -237,7 +269,7 @@ export function OnboardingTour({
           className="onboarding-overlay-animate fixed inset-0 z-50 bg-[#1B241E]/55 backdrop-blur-[6px]"
         />
 
-        {/* Crisp Flex Centering Viewport (avoids subpixel translate(-50%,-50%) text blur) */}
+        {/* Crisp Flex Centering Viewport */}
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
           <Dialog.Content
             id="onboarding-guide-modal"
@@ -253,9 +285,9 @@ export function OnboardingTour({
                 suppressCloseAutoFocusRef.current = false;
               }
             }}
-            className="onboarding-modal-animate pointer-events-auto relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[880px] flex-col overflow-hidden rounded-subtle border border-stone-strong/85 bg-surface text-ink shadow-[0_24px_64px_-16px_rgba(22,30,25,0.34)] focus:outline-none sm:max-h-[min(88dvh,680px)]"
+            className="onboarding-modal-animate pointer-events-auto relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[900px] flex-col overflow-hidden rounded-subtle border border-stone-strong/85 bg-surface text-ink shadow-[0_24px_64px_-16px_rgba(22,30,25,0.34)] focus:outline-none sm:max-h-[min(88dvh,690px)]"
           >
-            {/* Pinned Top Header: Studio Label, Step Count, Step Indicators, Close Button & Progress Bar */}
+            {/* Pinned Top Header */}
             <div className="shrink-0 border-b border-stone-border bg-canvas px-4 py-3 sm:px-6 sm:py-3.5">
               <div className="flex items-center justify-between gap-2 sm:gap-4">
                 <div className="flex items-center gap-2.5">
@@ -271,7 +303,7 @@ export function OnboardingTour({
                   </span>
                 </div>
 
-                {/* Accessible Step Indicator Pills */}
+                {/* Accessible 5-Step Indicator Pills */}
                 <ol
                   aria-label="Onboarding tour steps"
                   className="flex items-center gap-1 sm:gap-1.5"
@@ -303,7 +335,7 @@ export function OnboardingTour({
                           <span className="font-mono text-[10px]">
                             0{step.stepNumber}
                           </span>
-                          <span className="hidden lg:inline">{step.navLabel}</span>
+                          <span className="hidden xl:inline">{step.navLabel}</span>
                         </button>
                       </li>
                     );
@@ -411,19 +443,32 @@ export function OnboardingTour({
                       ))}
                     </ul>
 
-                    {/* Step 4 Direct-Action Shortcuts to Implemented Ingredient & Shelf Tools */}
+                    {/* Step 4 Direct-Action Shortcuts to Product Check, Ingredient Explorer & Shelf Tools */}
                     {safeStepIndex === 3 && (
                       <div className="mt-5 rounded-editorial border border-sage-muted bg-sage-soft/50 p-3.5">
                         <p className="font-mono text-[10px] uppercase tracking-wider text-sage-botanical">
-                          Open a workspace directly
+                          Open an ingredient tool directly
                         </p>
                         <div className="mt-2.5 flex flex-wrap gap-2">
+                          {onNavigateToProductCheck && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                commitDismissal(onNavigateToProductCheck, true)
+                              }
+                              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-editorial bg-forest px-3.5 py-2 text-xs font-medium text-surface transition-colors hover:bg-forest-hover"
+                            >
+                              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                              <span>Open Product Check</span>
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             onClick={() =>
                               commitDismissal(onOpenIngredientsWorkspace, true)
                             }
-                            className="inline-flex min-h-[42px] items-center gap-1.5 rounded-editorial border border-forest/35 bg-surface px-3.5 py-2 text-xs font-medium text-forest transition-colors hover:border-forest hover:bg-sage-soft"
+                            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-editorial border border-forest/35 bg-surface px-3 py-2 text-xs font-medium text-forest transition-colors hover:border-forest hover:bg-sage-soft"
                           >
                             <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>Open Ingredient Explorer</span>
@@ -433,7 +478,7 @@ export function OnboardingTour({
                           <button
                             type="button"
                             onClick={() => commitDismissal(onOpenShelfInspector, true)}
-                            className="inline-flex min-h-[42px] items-center gap-1.5 rounded-editorial border border-stone-strong bg-surface px-3.5 py-2 text-xs font-medium text-ink transition-colors hover:border-forest hover:bg-sage-soft/65"
+                            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-editorial border border-stone-strong bg-surface px-3 py-2 text-xs font-medium text-ink transition-colors hover:border-forest hover:bg-sage-soft/65"
                           >
                             <ClipboardList
                               className="h-3.5 w-3.5 text-forest"
@@ -449,16 +494,16 @@ export function OnboardingTour({
               </div>
             </div>
 
-            {/* Pinned Bottom Navigation Footer (Accessible on All Screen Sizes Without Clipping) */}
+            {/* Pinned Bottom Navigation Footer */}
             <div className="shrink-0 border-t border-stone-border bg-canvas px-4 py-3.5 sm:px-6 sm:py-4">
               <div className="flex flex-wrap items-center justify-between gap-2.5">
-                {/* Left Control: Skip intro on Step 1, Back on Steps 2–4 */}
+                {/* Left Control: Skip intro on Step 1, Back on Steps 2–5 */}
                 <div>
                   {safeStepIndex === 0 ? (
                     <button
                       type="button"
                       onClick={() => commitDismissal(onSkip, false)}
-                      className="inline-flex min-h-[44px] items-center rounded-editorial border border-stone-strong bg-surface px-4 py-2 text-xs font-medium text-ink-secondary transition-colors hover:bg-sage-soft/50 hover:text-ink"
+                      className="btn-editorial-secondary min-h-[44px] px-4 py-2 text-xs text-ink-secondary hover:text-ink"
                     >
                       Skip intro
                     </button>
@@ -466,7 +511,7 @@ export function OnboardingTour({
                     <button
                       type="button"
                       onClick={() => goToStep(safeStepIndex - 1)}
-                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-editorial border border-stone-strong bg-surface px-4 py-2 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/60"
+                      className="btn-editorial-secondary min-h-[44px] px-4 py-2 text-xs"
                     >
                       <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Back</span>
@@ -474,7 +519,7 @@ export function OnboardingTour({
                   )}
                 </div>
 
-                {/* Right Controls: Direct-Action Feature Shortcut (Steps 2–3) + Next / Finish */}
+                {/* Right Controls: Direct-Action Feature Shortcut + Next / Finish */}
                 <div className="flex flex-wrap items-center justify-end gap-2.5">
                   {safeStepIndex === 1 && (
                     <button
@@ -498,12 +543,23 @@ export function OnboardingTour({
                     </button>
                   )}
 
+                  {safeStepIndex === 4 && onNavigateToRoutine && (
+                    <button
+                      type="button"
+                      onClick={() => commitDismissal(onNavigateToRoutine, true)}
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-editorial border border-forest/40 bg-sage-soft/75 px-4 py-2 text-xs font-medium text-forest transition-colors hover:border-forest hover:bg-sage-soft"
+                    >
+                      <CalendarHeart className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Open My Routine</span>
+                    </button>
+                  )}
+
                   {safeStepIndex < TOTAL_STEPS - 1 ? (
                     <button
                       ref={nextButtonRef}
                       type="button"
                       onClick={() => goToStep(safeStepIndex + 1)}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-5 py-2.5 text-xs font-medium tracking-wide text-surface transition-colors hover:bg-forest-hover"
+                      className="btn-editorial-primary min-h-[44px] px-5 py-2.5 text-xs tracking-wide"
                     >
                       <span>Next</span>
                       <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -512,7 +568,7 @@ export function OnboardingTour({
                     <button
                       type="button"
                       onClick={() => commitDismissal(onFinish, false)}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-5 py-2.5 text-xs font-medium tracking-wide text-surface transition-colors hover:bg-forest-hover"
+                      className="btn-editorial-primary min-h-[44px] px-5 py-2.5 text-xs tracking-wide"
                     >
                       <Check className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Finish</span>

@@ -2,8 +2,13 @@
 
 import React, { useMemo } from "react";
 import { Scale, Trash2, X } from "lucide-react";
-import { parseInciDeclaration } from "@/lib/ingredients/catalog";
+import { isFeaturedKeyMonograph, parseInciDeclaration } from "@/lib/ingredients/catalog";
 import type { SkincareProduct } from "@/lib/ingredients/types";
+import { buildContextualComparisonFit } from "@/lib/product-check/evaluator";
+import {
+  DEFAULT_PERSONAL_PROFILE,
+  type ProductCheckPersonalProfile,
+} from "@/lib/product-check/types";
 import { CARE_THEME_METADATA, type CareFocusTheme } from "@/lib/youcam/metadata";
 import { EmptyState } from "./EmptyState";
 import { formatProductPrice } from "./ProductCard";
@@ -11,6 +16,7 @@ import { formatProductPrice } from "./ProductCard";
 export interface ProductComparisonProps {
   comparedProducts: SkincareProduct[];
   selectedThemes: CareFocusTheme[];
+  personalProfile?: ProductCheckPersonalProfile;
   onRemoveFromCompare: (productId: string) => void;
   onClearComparison: () => void;
   onInspectProduct: (product: SkincareProduct) => void;
@@ -23,16 +29,45 @@ interface AnalyzedComparisonItem {
   emollientsAndLipids: string[];
   soothingAgents: string[];
   activesAndAcids: string[];
+  featuredMonographNames: string[];
   canonicalSet: Set<string>;
+}
+
+function getSourceEvidenceBadge(product: SkincareProduct): string {
+  if (product.provenance === "confirmed-packaging-label") {
+    return "Confirmed packaging label";
+  }
+  if (product.sourceKind === "open-beauty-facts") {
+    return "Open Beauty Facts (crowd-sourced ODbL)";
+  }
+  if (product.sourceKind === "reference-archetype") {
+    return "Reference formulation archetype";
+  }
+  return "User-entered shelf record";
 }
 
 export function ProductComparison({
   comparedProducts,
   selectedThemes,
+  personalProfile,
   onRemoveFromCompare,
   onClearComparison,
   onInspectProduct,
 }: ProductComparisonProps) {
+  const effectiveProfile = useMemo<ProductCheckPersonalProfile>(() => {
+    const base = personalProfile ?? DEFAULT_PERSONAL_PROFILE;
+    const mergedGoals = Array.from(new Set([...base.goals, ...selectedThemes]));
+    return {
+      ...base,
+      goals: mergedGoals,
+    };
+  }, [personalProfile, selectedThemes]);
+
+  const contextualFitNotes = useMemo(
+    () => buildContextualComparisonFit(comparedProducts, effectiveProfile),
+    [comparedProducts, effectiveProfile]
+  );
+
   const analyzed = useMemo<AnalyzedComparisonItem[]>(() => {
     return comparedProducts.map((product) => {
       const parsed = parseInciDeclaration(product.inciDeclaration);
@@ -40,6 +75,7 @@ export function ProductComparison({
       const emollientsAndLipids: string[] = [];
       const soothingAgents: string[] = [];
       const activesAndAcids: string[] = [];
+      const featuredMonographNames: string[] = [];
       const canonicalSet = new Set<string>();
 
       for (const item of parsed) {
@@ -47,6 +83,10 @@ export function ProductComparison({
         canonicalSet.add(label.toLowerCase());
 
         if (!item.monograph) continue;
+        if (isFeaturedKeyMonograph(item.monograph)) {
+          featuredMonographNames.push(label);
+        }
+
         const roles = item.monograph.statedRoles.map((r) => r.toLowerCase());
 
         if (roles.some((r) => r.includes("humectant"))) {
@@ -54,19 +94,36 @@ export function ProductComparison({
         }
         if (
           roles.some((r) => r.includes("emollient")) ||
-          item.monograph.id === "ceramide-np"
+          ["ceramide-np", "cholesterol-lipids", "petrolatum", "dimethicone"].includes(
+            item.monograph.id
+          )
         ) {
           emollientsAndLipids.push(label);
         }
         if (
           roles.some((r) => r.includes("soothing") || r.includes("skin protecting")) ||
-          item.monograph.id === "panthenol"
+          ["panthenol", "bisabolol", "beta-glucan", "ectoin"].includes(item.monograph.id)
         ) {
           soothingAgents.push(label);
         }
         if (
-          roles.some((r) => r.includes("keratolytic") || r.includes("antioxidant")) ||
-          ["niacinamide", "azelaic-acid", "retinol", "tranexamic-acid"].includes(item.monograph.id)
+          roles.some(
+            (r) =>
+              r.includes("keratolytic") ||
+              r.includes("antioxidant") ||
+              r.includes("uv absorber") ||
+              r.includes("uv filter")
+          ) ||
+          [
+            "niacinamide",
+            "azelaic-acid",
+            "retinol",
+            "tranexamic-acid",
+            "alpha-arbutin",
+            "benzoyl-peroxide",
+            "bakuchiol",
+            "biomimetic-peptides",
+          ].includes(item.monograph.id)
         ) {
           activesAndAcids.push(label);
         }
@@ -79,6 +136,7 @@ export function ProductComparison({
         emollientsAndLipids: Array.from(new Set(emollientsAndLipids)),
         soothingAgents: Array.from(new Set(soothingAgents)),
         activesAndAcids: Array.from(new Set(activesAndAcids)),
+        featuredMonographNames: Array.from(new Set(featuredMonographNames)),
         canonicalSet,
       };
     });
@@ -90,6 +148,21 @@ export function ProductComparison({
     return first.filter((ing) =>
       analyzed.slice(1).every((other) => other.canonicalSet.has(ing))
     );
+  }, [analyzed]);
+
+  const uniqueActivesByProductId = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const current of analyzed) {
+      const othersSet = new Set<string>();
+      for (const other of analyzed) {
+        if (other.product.id === current.product.id) continue;
+        for (const k of other.canonicalSet) othersSet.add(k);
+      }
+      map[current.product.id] = current.featuredMonographNames.filter(
+        (name) => !othersSet.has(name.toLowerCase())
+      );
+    }
+    return map;
   }, [analyzed]);
 
   return (
@@ -110,9 +183,9 @@ export function ProductComparison({
               Formulation comparison
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
-              Compare two or three formulations across functional ingredient roles, shared INCI
-              overlap, routine purpose, and disclosed pricing—without synthetic compatibility scores
-              or declared winners.
+              Compare two or three formulations across INCI differences, personal goal alignment,
+              sensitivity considerations, verified price/size when available, and evidence
+              completeness—without declaring a universal winner.
             </p>
           </div>
 
@@ -120,7 +193,7 @@ export function ProductComparison({
             <button
               type="button"
               onClick={onClearComparison}
-              className="inline-flex min-h-[40px] items-center gap-1.5 self-start rounded-editorial border border-stone-strong bg-canvas px-3.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/60 sm:self-auto"
+              className="btn-editorial-secondary min-h-[40px] self-start px-3.5 py-2 text-xs sm:self-auto"
             >
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Clear selection ({comparedProducts.length})</span>
@@ -141,11 +214,11 @@ export function ProductComparison({
                   ? `"${comparedProducts[0].name}" is ready—select one more formulation to compare`
                   : "Select two or three formulations above to compare them side by side"
               }
-              description="Use the 'Compare' button on any formulation card—from the Open Beauty Facts INCI registry, products added from your own shelf, or the reference formulation archetypes—to inspect composition differences here."
+              description="Use the 'Compare' button on any formulation card—from the Open Beauty Facts INCI registry, Product Check verdicts, or reference archetypes—to inspect composition differences here."
             >
               <a
                 href="#discovery"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-5 py-2.5 text-xs font-medium text-surface transition-colors hover:bg-forest-hover"
+                className="btn-editorial-primary min-h-[44px] px-5 py-2.5 text-xs"
               >
                 <Scale className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Go to formulations</span>
@@ -211,43 +284,75 @@ export function ProductComparison({
                 ))}
               </div>
 
-              {/* Row 1: Price & Size */}
+              {/* Row 1: Contextual Fit Summary (Non-Universal) */}
               <ComparisonDesktopRow
-                label="Price & Size"
-                sublabel="Shown honestly when absent"
-                columns={analyzed.map(({ product }) => (
-                  <div key={product.id} className="text-xs">
-                    <p className="font-mono font-medium text-ink">
-                      {product.price
-                        ? formatProductPrice(product.price)
-                        : product.sourceKind === "open-beauty-facts"
-                          ? "Not listed (Open Beauty Facts ODbL)"
-                          : product.sourceKind === "reference-archetype"
-                            ? "Non-commercial archetype"
-                            : "Not entered"}
+                label="Contextual Fit"
+                sublabel="Relative to your goals & tolerance"
+                columns={analyzed.map(({ product }) => {
+                  const note = contextualFitNotes.find((n) => n.productId === product.id);
+                  return (
+                    <p key={product.id} className="text-xs leading-relaxed text-ink">
+                      {note?.contextualSummary}
                     </p>
-                    <p className="mt-1 text-ink-secondary">
-                      {product.sizeLabel ?? "Volume not specified"}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               />
 
-              {/* Row 2: Routine Purpose */}
+              {/* Row 2: Key INCI Differences */}
               <ComparisonDesktopRow
-                label="Routine Role"
-                sublabel="Stated step & texture context"
-                columns={analyzed.map(({ product }) => (
-                  <div key={product.id} className="text-xs leading-relaxed text-ink-secondary">
-                    <p className="font-medium text-ink">{product.category}</p>
-                    <p className="mt-1">
-                      {product.intendedStepNote ?? product.surfacedReason}
-                    </p>
-                  </div>
-                ))}
+                label="Distinctive INCI"
+                sublabel="Indexed ingredients unique in this pair"
+                columns={analyzed.map(({ product }) => {
+                  const unique = uniqueActivesByProductId[product.id] ?? [];
+                  return (
+                    <div key={product.id} className="text-xs">
+                      {unique.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {unique.map((u) => (
+                            <span
+                              key={u}
+                              className="rounded-editorial border border-sage-muted bg-sage-soft/55 px-2 py-0.5 text-[11px] font-medium text-forest"
+                            >
+                              {u}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-ink-muted">
+                          No unique indexed actives relative to the other selection(s)
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               />
 
-              {/* Row 3: Humectants & Barrier Lipids */}
+              {/* Row 3: Potential Sensitivity Flags */}
+              <ComparisonDesktopRow
+                label="Sensitivity Flags"
+                sublabel="Fragrance, volatile oils & strong actives"
+                columns={analyzed.map(({ product }) => {
+                  const note = contextualFitNotes.find((n) => n.productId === product.id);
+                  const triggers = note?.sensitivityTriggers ?? [];
+                  return (
+                    <div key={product.id} className="text-xs">
+                      {triggers.length > 0 ? (
+                        <ul className="space-y-1 text-clay-deep">
+                          {triggers.map((t) => (
+                            <li key={t}>&bull; {t}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="text-forest">
+                          None of the common fragrance, sulfate, or acid/retinoid flags detected
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              />
+
+              {/* Row 4: Humectants & Barrier Lipids */}
               <ComparisonDesktopRow
                 label="Hydration & Lipids"
                 sublabel="Documented humectants & emollients"
@@ -275,7 +380,7 @@ export function ProductComparison({
                 ))}
               />
 
-              {/* Row 4: Targeted Actives & Soothing */}
+              {/* Row 5: Targeted Actives & Soothing */}
               <ComparisonDesktopRow
                 label="Actives & Soothers"
                 sublabel="Conditioning, antioxidant & keratolytic"
@@ -305,38 +410,18 @@ export function ProductComparison({
                 ))}
               />
 
-              {/* Row 5: Disclosed Attributes */}
+              {/* Row 6: Goal Alignment */}
               <ComparisonDesktopRow
-                label="Label Attributes"
-                sublabel="Declared formula traits"
-                columns={analyzed.map(({ product }) => (
-                  <div key={product.id} className="flex flex-wrap gap-1.5">
-                    {product.attributes.length > 0 ? (
-                      product.attributes.map((attr) => (
-                        <span
-                          key={attr}
-                          className="rounded-editorial border border-stone-border bg-surface px-2 py-0.5 text-[11px] text-ink"
-                        >
-                          {attr}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-ink-muted">None specified</span>
-                    )}
-                  </div>
-                ))}
-              />
-
-              {/* Row 6: User Preference Alignment (Non-scored) */}
-              <ComparisonDesktopRow
-                label="Selected Preferences"
-                sublabel="User-selected focus overlap"
+                label="Goal Alignment"
+                sublabel="Overlap with selected goals"
                 columns={analyzed.map(({ product }) => {
-                  const matched = product.focusThemes.filter((t) => selectedThemes.includes(t));
+                  const matched = product.focusThemes.filter((t) =>
+                    effectiveProfile.goals.includes(t)
+                  );
                   return (
                     <div key={product.id} className="text-xs text-ink-secondary">
-                      {selectedThemes.length === 0 ? (
-                        <span>No focus preferences currently selected above.</span>
+                      {effectiveProfile.goals.length === 0 ? (
+                        <span>Select routine priorities or Product Check goals to see alignment.</span>
                       ) : matched.length > 0 ? (
                         <ul className="space-y-1 text-ink">
                           {matched.map((t) => (
@@ -344,31 +429,66 @@ export function ProductComparison({
                           ))}
                         </ul>
                       ) : (
-                        <span>Does not specifically target your active focus filter.</span>
+                        <span>Does not specifically target your active focus goals.</span>
                       )}
                     </div>
                   );
                 })}
               />
 
-              {/* Row 7: Undisclosed Information */}
+              {/* Row 7: Verified Price & Size */}
               <ComparisonDesktopRow
-                label="Missing Label Data"
-                sublabel="Variables INCI lists omit"
-                columns={analyzed.map((item) => (
-                  <p key={item.product.id} className="text-xs leading-relaxed text-ink-secondary">
-                    {item.totalInciCount} declared INCI entries; exact active weight percentages and
-                    final formulation pH are not disclosed on standard INCI labels.
-                  </p>
+                label="Price & Size"
+                sublabel="Shown honestly when absent"
+                columns={analyzed.map(({ product }) => (
+                  <div key={product.id} className="text-xs">
+                    <p className="font-mono font-medium text-ink">
+                      {product.price
+                        ? formatProductPrice(product.price)
+                        : product.sourceKind === "open-beauty-facts"
+                          ? "Not listed (Open Beauty Facts ODbL)"
+                          : product.sourceKind === "reference-archetype"
+                            ? "Non-commercial archetype"
+                            : "Not entered"}
+                    </p>
+                    <p className="mt-1 text-ink-secondary">
+                      {product.sizeLabel ?? "Volume not specified"}
+                    </p>
+                  </div>
                 ))}
+              />
+
+              {/* Row 8: Data Completeness & Evidence Quality */}
+              <ComparisonDesktopRow
+                label="Data & Evidence Quality"
+                sublabel="Provenance & undisclosed variables"
+                columns={analyzed.map((item) => {
+                  const note = contextualFitNotes.find((n) => n.productId === item.product.id);
+                  return (
+                    <div
+                      key={item.product.id}
+                      className="space-y-1 text-xs leading-relaxed text-ink-secondary"
+                    >
+                      <p className="font-medium text-ink">
+                        {getSourceEvidenceBadge(item.product)}
+                      </p>
+                      <p>{note?.dataCompletenessLabel}</p>
+                      <p className="text-[11px] text-ink-muted">
+                        Exact active % and final formulation pH are undisclosed on standard INCI
+                        labels.
+                      </p>
+                    </div>
+                  );
+                })}
               />
             </div>
 
-            {/* MOBILE RESPONSIVE COMPARISON CARDS (< md — readable without tiny horizontal tables) */}
+            {/* MOBILE RESPONSIVE COMPARISON CARDS (< md) */}
             <div className="space-y-4 md:hidden">
               {analyzed.map((item) => {
                 const { product } = item;
-                const matched = product.focusThemes.filter((t) => selectedThemes.includes(t));
+                const note = contextualFitNotes.find((n) => n.productId === product.id);
+                const unique = uniqueActivesByProductId[product.id] ?? [];
 
                 return (
                   <article
@@ -394,60 +514,48 @@ export function ProductComparison({
                     </div>
 
                     <dl className="mt-4 space-y-3 text-xs">
-                      <div className="flex justify-between gap-2 border-b border-stone-border/70 pb-2">
-                        <dt className="text-ink-muted">Price</dt>
-                        <dd className="font-mono font-medium text-ink">
-                          {product.price
-                            ? formatProductPrice(product.price)
-                            : "Unavailable"}
-                        </dd>
-                      </div>
-
                       <div>
                         <dt className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
-                          Humectants &amp; Lipids
+                          Contextual Fit
                         </dt>
-                        <dd className="mt-1 text-ink">
-                          {[...item.humectants, ...item.emollientsAndLipids].join(", ") ||
-                            "None indexed"}
+                        <dd className="mt-1 leading-relaxed text-ink">
+                          {note?.contextualSummary}
                         </dd>
                       </div>
 
-                      <div>
-                        <dt className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
-                          Actives &amp; Soothing Agents
-                        </dt>
-                        <dd className="mt-1 text-ink">
-                          {[...item.activesAndAcids, ...item.soothingAgents].join(", ") ||
-                            "None indexed"}
-                        </dd>
-                      </div>
-
-                      <div>
-                        <dt className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
-                          Attributes
-                        </dt>
-                        <dd className="mt-1 text-ink-secondary">
-                          {product.attributes.join(" · ") || "None specified"}
-                        </dd>
-                      </div>
-
-                      {selectedThemes.length > 0 && (
+                      {unique.length > 0 && (
                         <div>
                           <dt className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
-                            Preference Overlap
+                            Distinctive INCI in This Selection
                           </dt>
-                          <dd className="mt-1 text-ink">
-                            {matched.length > 0
-                              ? matched.map((t) => CARE_THEME_METADATA[t].label).join(", ")
-                              : "No overlap with active preference filter"}
-                          </dd>
+                          <dd className="mt-1 font-medium text-forest">{unique.join(", ")}</dd>
                         </div>
                       )}
 
-                      <div className="border-t border-stone-border/70 pt-2 text-[11px] text-ink-secondary">
-                        Undisclosed: Exact active percentages &amp; formulation pH are not stated in
-                        standard INCI declarations.
+                      <div>
+                        <dt className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+                          Sensitivity Flags
+                        </dt>
+                        <dd className="mt-1 text-ink-secondary">
+                          {note && note.sensitivityTriggers.length > 0
+                            ? note.sensitivityTriggers.join(" · ")
+                            : "No common fragrance, sulfate, or acid/retinoid flags"}
+                        </dd>
+                      </div>
+
+                      <div className="flex justify-between gap-2 border-y border-stone-border/70 py-2">
+                        <dt className="text-ink-muted">Price &amp; Size</dt>
+                        <dd className="font-mono font-medium text-ink">
+                          {product.price ? formatProductPrice(product.price) : "Unlisted"}
+                          {product.sizeLabel ? ` · ${product.sizeLabel}` : ""}
+                        </dd>
+                      </div>
+
+                      <div className="text-[11px] text-ink-secondary">
+                        <strong className="font-medium text-ink">
+                          {getSourceEvidenceBadge(product)}:
+                        </strong>{" "}
+                        {note?.dataCompletenessLabel}. Active % &amp; pH undisclosed.
                       </div>
                     </dl>
                   </article>

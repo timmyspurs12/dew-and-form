@@ -46,10 +46,10 @@ export function EditorialHero() {
               </p>
 
               {/* Deliberate CTAs */}
-              <div className="mt-8 flex flex-wrap items-center gap-3.5 sm:mt-10">
+              <div className="mt-8 flex flex-wrap items-center gap-3 sm:mt-10">
                 <a
                   href="#analysis"
-                  className="group inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-editorial bg-forest px-6 py-3 text-sm font-medium tracking-wide text-surface transition-all duration-200 ease-editorial hover:bg-forest-hover"
+                  className="btn-editorial-primary group min-h-[48px] px-6 py-3 text-sm tracking-wide"
                 >
                   <span>Explore my skin</span>
                   <ArrowDownRight
@@ -59,8 +59,15 @@ export function EditorialHero() {
                 </a>
 
                 <a
+                  href="#product-check"
+                  className="btn-editorial-secondary min-h-[48px] px-5 py-3 text-sm"
+                >
+                  Check a product
+                </a>
+
+                <a
                   href="#approach"
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-editorial border border-stone-strong bg-surface px-6 py-3 text-sm font-medium text-ink transition-colors duration-150 hover:bg-sage-soft/60"
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-editorial px-3 py-3 text-sm font-medium text-ink-secondary underline decoration-stone-strong underline-offset-4 transition-colors duration-150 hover:text-forest"
                 >
                   Discover the approach
                 </a>
@@ -100,13 +107,13 @@ export function EditorialHero() {
 
           {/* Editorial Still-Life Plate (5 columns on desktop) */}
           <div className="lg:col-span-5">
-            <figure className="border border-stone-border bg-surface p-3 sm:p-4">
+            <figure className="editorial-plate-frame border border-stone-border bg-surface p-3 transition-colors duration-200 hover:border-stone-strong sm:p-4">
               <div className="relative aspect-[5/4] w-full overflow-hidden bg-canvas-subtle sm:aspect-[4/3] lg:aspect-[6/5]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/images/editorial-hero.jpg"
                   alt="Editorial still life of an unbranded frosted apothecary dropper bottle, travertine stone slab, porcelain dish with clear botanical serum droplet, and muted sage eucalyptus leaf in morning daylight."
-                  className="h-full w-full object-cover object-center"
+                  className="editorial-plate-zoom h-full w-full object-cover object-center"
                 />
               </div>
 
