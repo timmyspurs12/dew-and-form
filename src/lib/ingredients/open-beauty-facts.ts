@@ -4,7 +4,7 @@ import {
   isValidCareFocusTheme,
   type CareFocusTheme,
 } from "@/lib/youcam/metadata";
-import { cleanRawInciText, parseInciDeclaration } from "./catalog";
+import { cleanRawInciText, isFeaturedKeyMonograph, parseInciDeclaration } from "./catalog";
 import type {
   FormulationAttribute,
   FormulationCategory,
@@ -184,13 +184,13 @@ export function normalizeOpenBeautyFactsRecord(
     return null;
   }
 
-  // Extract unique documented CosIng/CIR key ingredients (excluding plain Aqua solvent)
+  // Extract unique documented CosIng/CIR key ingredients (excluding plain solvent/preservative/caution-only entries)
   type MatchedMono = NonNullable<(typeof parsedIngredients)[number]["monograph"]>;
   const matchedMonographs = Array.from(
     new Map(
       parsedIngredients
         .map((item) => item.monograph)
-        .filter((m): m is MatchedMono => m !== null && m.id !== "aqua")
+        .filter((m): m is MatchedMono => m !== null && isFeaturedKeyMonograph(m))
         .map((m) => [m.id, m] as const)
     ).values()
   );

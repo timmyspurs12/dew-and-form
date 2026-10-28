@@ -44,9 +44,17 @@ export type ProductSourceKind =
   | "user-shelf"
   | "reference-archetype";
 
+export type ProductDataProvenance =
+  | "confirmed-packaging-label"
+  | "open-beauty-facts-crowd"
+  | "reference-archetype"
+  | "unverified-url"
+  | "manual-incomplete";
+
 export interface SkincareProduct {
   id: string;
   sourceKind: ProductSourceKind;
+  provenance?: ProductDataProvenance;
   name: string;
   brand: string;
   category: FormulationCategory;

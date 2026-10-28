@@ -10,36 +10,36 @@ const config: Config = {
     extend: {
       colors: {
         canvas: {
-          DEFAULT: "var(--color-canvas)",
-          subtle: "var(--color-canvas-subtle)",
+          DEFAULT: "#F7F5EF",
+          subtle: "#EFECE3",
         },
         surface: {
-          DEFAULT: "var(--color-surface)",
-          elevated: "var(--color-surface-elevated)",
+          DEFAULT: "#FFFEFA",
+          elevated: "#FAF8F2",
         },
         sage: {
-          soft: "var(--color-sage-soft)",
-          muted: "var(--color-sage-muted)",
-          botanical: "var(--color-botanical)",
+          soft: "#E5E9DE",
+          muted: "#D5DDD0",
+          botanical: "#4A5A44",
         },
         forest: {
-          DEFAULT: "var(--color-forest)",
-          hover: "var(--color-forest-hover)",
+          DEFAULT: "#26382F",
+          hover: "#1D2B24",
         },
         stone: {
-          warm: "var(--color-stone)",
-          border: "var(--color-border)",
-          strong: "var(--color-border-strong)",
+          warm: "#DAD5CA",
+          border: "#DDD8CD",
+          strong: "#BFB9AC",
         },
         ink: {
-          DEFAULT: "var(--color-text-primary)",
-          secondary: "var(--color-text-secondary)",
-          muted: "var(--color-text-muted)",
+          DEFAULT: "#292C27",
+          secondary: "#565950",
+          muted: "#686B61",
         },
         clay: {
-          DEFAULT: "var(--color-clay)",
-          soft: "var(--color-clay-soft)",
-          deep: "var(--color-clay-deep)",
+          DEFAULT: "#A86E5A",
+          soft: "#F3E8E3",
+          deep: "#784635",
         },
       },
       fontFamily: {

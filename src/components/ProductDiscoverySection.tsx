@@ -47,6 +47,7 @@ export interface ProductDiscoverySectionProps {
   comparedIds: string[];
   onToggleCompare: (productId: string) => void;
   onInspectProduct: (product: SkincareProduct | null, initialIngredient?: string) => void;
+  onCheckSuitability?: (product: SkincareProduct) => void;
   onOpenShelfModal: () => void;
 }
 
@@ -93,6 +94,7 @@ export function ProductDiscoverySection({
   comparedIds,
   onToggleCompare,
   onInspectProduct,
+  onCheckSuitability,
   onOpenShelfModal,
 }: ProductDiscoverySectionProps) {
   const [searchInput, setSearchInput] = useState(activeRegistryQuery ?? "");
@@ -245,16 +247,16 @@ export function ProductDiscoverySection({
             <button
               type="button"
               onClick={() => onInspectProduct(null)}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial border border-stone-strong bg-surface px-4 py-2.5 text-xs font-medium text-ink transition-colors hover:bg-sage-soft/50"
+              className="btn-editorial-secondary min-h-[44px] px-4 py-2.5 text-xs"
             >
               <BookOpen className="h-3.5 w-3.5 text-forest" aria-hidden="true" />
-              <span>Browse 22 INCI monographs</span>
+              <span>Browse 35 INCI monographs</span>
             </button>
 
             <button
               type="button"
               onClick={onOpenShelfModal}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-editorial bg-forest px-4 py-2.5 text-xs font-medium text-surface transition-colors hover:bg-forest-hover"
+              className="btn-editorial-primary min-h-[44px] px-4 py-2.5 text-xs"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Inspect a shelf product</span>
@@ -740,6 +742,7 @@ export function ProductDiscoverySection({
                   compareDisabled={comparedIds.length >= 3}
                   onToggleCompare={onToggleCompare}
                   onInspectIngredients={(prod, ing) => onInspectProduct(prod, ing)}
+                  onCheckSuitability={onCheckSuitability}
                 />
               ))}
             </div>

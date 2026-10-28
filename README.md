@@ -2,20 +2,22 @@
 
 > *Find your skin's kind of care.*
 
-**Dew & Form** is a skincare discovery and formulation-literacy web application powered by **Perfect Corp YouCam AI Skin Analysis (S2S API v2.1)** and the public **Open Beauty Facts** cosmetic INCI registry (**ODbL**). It combines optical AI skin insights, documented cosmetic ingredient transparency, and calm side-by-side product comparison in a warm beauty-editorial interface.
+**Dew & Form** is an editorial skincare discovery, formulation-literacy, and evidence-based product intelligence studio powered by **Perfect Corp YouCam AI Skin Analysis (S2S API v2.1)** and the public **Open Beauty Facts** cosmetic INCI registry (**ODbL**). It combines optical AI skin insights, 35 documented European Commission **CosIng / CIR / EU Annex** ingredient monographs, transparent **Product Check** suitability assessments, calm side-by-side formulation comparisons, and a lightweight browser-persisted **My Routine** planner.
 
 ---
 
 ## Core Capabilities
 
-- **Interactive First-Visit Onboarding Modal** — Accessible 4-step editorial modal popup over a blurred translucent backdrop (*Welcome to Dew & Form*, *Skin Analysis*, *Product Discovery & Comparison*, *Ingredient Explorer & Product Check*) with in-place step transitions, `Step 1 of 4` progress feedback, direct workspace shortcuts, graceful `localStorage` persistence, and **Take a tour** replay controls in the header and footer.
-- **Editorial Landing & Methodology** — Introduces what optical camera skin analysis can observe, what INCI declarations document, and where clinical or personal patch-testing boundaries lie.
-- **Skin Analysis Workspace** — Supports drag-and-drop, accessible file selection, and live browser camera capture (`getUserMedia`) with both client pre-checks and authoritative server-side binary magic-byte & dimension validation (`JPEG`/`PNG`, `< 10 MB`, `≥ 480 px` short side for Standard SD or `≥ 1080 px` for High-Definition HD).
-- **Server-Proxied YouCam S2S v2.1 Integration** — Keeps `YOUCAM_API_KEY` strictly server-side (`import "server-only"`), executing the official File API initialization (`POST /s2s/v2.0/file`), pre-signed binary `PUT` transfer, conservative verified v2.1 task creation (`POST /s2s/v2.1/task/skin-analysis` with `["skin_type", "acne", "oiliness"]` SD / `["hd_skin_type", "hd_acne", "hd_oiliness"]` HD), and session-bound asynchronous task polling (`GET /s2s/v2.1/task/skin-analysis/{task_id}`).
-- **Privacy, Session Ownership & Cost Discipline** — Binds created tasks to an `HttpOnly` session cookie via HMAC-SHA256 tokens so arbitrary or cross-session task IDs are rejected, enforces per-client rate limits, redacts secrets and pre-signed URLs, and resumes polling existing tasks on transient network interruptions without creating duplicate paid tasks.
-- **Honest Personal Skin Insights** — Displays returned `ui_score` and `raw_score` values on YouCam's `1–100` condition index (never mislabeled as percentages), facial sub-region breakdowns, `skin_type` across Whole Face / T-Zone / U-Zone, toggleable detection overlays with 2-hour expiry awareness, and explicit listing of unrequested or unreturned fields (never defaulted to `0`).
-- **Open Beauty Facts INCI Registry & Shelf Inspector** — Connects `GET /api/products` (and `?q=` search / EAN-UPC barcode lookup) to **Open Beauty Facts** (`world.openbeautyfacts.org`, ODbL) to surface real cosmetic products and genuine packaging INCI declarations without fabricating retail prices, ratings, or stock claims. Cross-references INCI lists against European Commission **CosIng** functional roles and **Cosmetic Ingredient Review (CIR)** evidence summaries, alongside a personal **Shelf INCI Inspector** modal and 4 non-commercial formulation reference archetypes.
-- **Side-by-Side Formulation Comparison** — Compares 2–3 formulations across functional ingredient roles, shared INCI overlap, routine step, and disclosed price on desktop and mobile without inventing compatibility scores or winners.
+- **5-Step Interactive First-Visit Onboarding Modal** — Accessible 5-step editorial modal popup over a blurred translucent backdrop (*Welcome to Dew & Form*, *Skin Analysis*, *Product Discovery & Comparison*, *Dew & Form Product Check*, *My Routine*) with in-place `Back`/`Next`/step-indicator navigation, direct workspace shortcuts, graceful `localStorage` persistence, and **Take a tour** replay controls in the header and footer.
+- **Dew & Form Product Check (`#product-check`)** — Signature evidence-based evaluator that answers whether a product is a **Good potential fit**, raises **Some concerns**, or has **Not enough information**:
+  - **Multi-Source Inputs**: Catalogue & EAN/UPC barcode search, manual product name & INCI entry, SSRF-hardened HTTPS product URL inspection (`POST /api/product-check/extract-url`), and binary-validated label photograph upload with an interactive magnification loupe (`POST /api/product-check/ocr`).
+  - **Identity & Provenance Confirmation**: Editable product details before assessment, explicitly distinguishing user-confirmed physical packaging labels from crowd-contributed Open Beauty Facts records and unverified web pages.
+  - **Concise Optional Personalisation**: Goals, skin type, personal sensitivities/custom allergens, saved routine active overlaps, and optional budget ceiling—with opt-in reuse of genuine live YouCam session scans.
+  - **Strict Scientific Guardrails**: Distinguishes ingredient-level CosIng/CIR evidence from finished-formulation clinical proof, substantiates or flags contradicted box claims (e.g., *fragrance-free*, *non-comedogenic*, *clinically proven*), and never invents active concentrations, pH, or universal safety certifications.
+- **Server-Proxied YouCam S2S v2.1 Integration (`#analysis` & `#insights`)** — Keeps `YOUCAM_API_KEY` strictly server-side (`import "server-only"`), executing File API initialization (`POST /s2s/v2.0/file`), pre-signed binary `PUT` transfer, verified v2.1 task creation (`POST /s2s/v2.1/task/skin-analysis`), and HMAC session-bound task polling (`GET /s2s/v2.1/task/skin-analysis/{task_id}`).
+- **Open Beauty Facts INCI Registry & 35 CosIng/CIR Monographs (`#discovery`)** — Connects `GET /api/products` to **Open Beauty Facts** (`world.openbeautyfacts.org`, ODbL) to surface real cosmetic INCI declarations without fabricating retail prices or reviews, paired with 35 documented ingredient monographs and a personal **Shelf INCI Inspector**.
+- **Upgraded Side-by-Side Formulation Comparison (`#comparison`)** — Compares 2–3 formulations across contextual personal fit, distinctive vs. shared INCI ingredients, sensitivity flags, goal alignment, verified price/size (when available), and data completeness.
+- **Lightweight Persistent "My Routine" (`#my-routine`)** — Lets users assemble, save, and revisit AM & PM routines from products they already own or verified catalogue items in browser storage, explaining cosmetic step roles and flagging active layering conflicts (such as AHA/BHA + retinoid stacking or missing daytime SPF) without pushing unnecessary purchases.
 
 ---
 
@@ -32,9 +34,15 @@ cp .env.example .env.local
 YOUCAM_API_KEY=your_perfect_corp_youcam_api_key
 YOUCAM_API_BASE_URL=https://yce-api-01.makeupar.com
 YOUCAM_ANALYSIS_MODE=sd
-```
 
-When `YOUCAM_API_KEY` is omitted during local UI development, live analysis requests return an explicit configuration notice and offer clearly badged **Development Fixture** previews separated from live scans. Open Beauty Facts requires no API key and degrades gracefully to non-commercial formulation archetypes if offline.
+# Optional public Open Beauty Facts override (defaults to https://world.openbeautyfacts.org)
+OPEN_BEAUTY_FACTS_BASE_URL=https://world.openbeautyfacts.org
+
+# Optional server-only Label OCR integration boundary
+# When unset, POST /api/product-check/ocr validates JPEG/PNG magic bytes and enables manual loupe transcription
+PRODUCT_LABEL_OCR_ENDPOINT=
+PRODUCT_LABEL_OCR_API_KEY=
+```
 
 ---
 
@@ -43,7 +51,7 @@ When `YOUCAM_API_KEY` is omitted during local UI development, live analysis requ
 ```bash
 npm run dev        # Start Next.js development server on 0.0.0.0:3000
 npm run typecheck  # Run TypeScript strict check
-npm run lint       # Run ESLint
-npm test           # Run Vitest unit, API route & UI component suite
+npm run lint       # Run ESLint (--max-warnings=0)
+npm test           # Run Vitest unit, API route, security & UI component suites
 npm run build      # Build production Next.js bundle
 ```

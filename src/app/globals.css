@@ -70,6 +70,75 @@
   .eyebrow-label {
     @apply font-sans text-[11px] font-medium uppercase tracking-[0.14em] text-ink-secondary;
   }
+
+  .btn-editorial-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-editorial bg-forest font-medium text-surface transition-all duration-200 ease-editorial hover:bg-forest-hover active:scale-[0.985] disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-editorial-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-editorial border border-stone-strong bg-surface font-medium text-ink transition-all duration-200 ease-editorial hover:border-forest hover:bg-sage-soft active:scale-[0.985] disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .chip-interactive {
+    @apply inline-flex items-center gap-1.5 rounded-editorial border transition-all duration-150 ease-editorial active:scale-[0.97];
+  }
+
+  .editorial-card-interactive {
+    @apply rounded-editorial border bg-surface transition-all duration-200 ease-editorial;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-editorial-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px -8px rgba(38, 56, 47, 0.38);
+  }
+
+  .btn-editorial-secondary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -8px rgba(41, 44, 39, 0.14);
+  }
+
+  .editorial-card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -14px rgba(41, 44, 39, 0.14);
+  }
+
+  .editorial-plate-frame:hover .editorial-plate-zoom {
+    transform: scale(1.035);
+  }
+}
+
+.editorial-plate-zoom {
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.scroll-reveal-pending {
+  opacity: 0.01;
+  transform: translateY(14px);
+}
+
+.scroll-reveal-shown {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes delightSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.delight-toast-animate {
+  animation: delightSlideUp 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes onboardingOverlayIn {
