@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Compass, Menu, Scale, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export const TAKE_TOUR_ENTRY_GLOW_DURATION_MS = 6000;
 
 export interface BrandHeaderProps {
   hasResults: boolean;
@@ -23,6 +25,29 @@ const NAV_ITEMS = [
   { id: "my-routine", label: "My Routine", href: "#my-routine" },
 ] as const;
 
+function subscribeReducedMotion(callback: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return () => undefined;
+  }
+  const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+  if (typeof mql.addEventListener === "function") {
+    mql.addEventListener("change", callback);
+    return () => mql.removeEventListener("change", callback);
+  }
+  return () => undefined;
+}
+
+function getReducedMotionSnapshot(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function getReducedMotionServerSnapshot(): boolean {
+  return false;
+}
+
 export function BrandHeader({
   hasResults,
   compareCount,
@@ -32,6 +57,35 @@ export function BrandHeader({
   onTakeTour,
 }: BrandHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [entryGlowFinished, setEntryGlowFinished] = useState(false);
+
+  const prefersReducedMotion = useSyncExternalStore(
+    subscribeReducedMotion,
+    getReducedMotionSnapshot,
+    getReducedMotionServerSnapshot
+  );
+
+  // Automatically settle the repeating sage-green entry glow after 6.0 seconds of visible header entry
+  useEffect(() => {
+    if (prefersReducedMotion || entryGlowFinished || isTourOpen) return;
+
+    const timer = window.setTimeout(() => {
+      setEntryGlowFinished(true);
+    }, TAKE_TOUR_ENTRY_GLOW_DURATION_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [prefersReducedMotion, entryGlowFinished, isTourOpen]);
+
+  const entryGlowState: "active" | "settled" | "reduced-motion" = prefersReducedMotion
+    ? "reduced-motion"
+    : entryGlowFinished
+      ? "settled"
+      : "active";
+
+  const handleTakeTourClick = () => {
+    setEntryGlowFinished(true);
+    onTakeTour?.();
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-stone-border bg-canvas/95 backdrop-blur-sm transition-colors duration-200">
@@ -42,7 +96,7 @@ export function BrandHeader({
         Skip to main content
       </a>
 
-      <div className="editorial-container flex h-16 items-center justify-between gap-4 sm:h-[4.5rem]">
+      <div className="editorial-container flex h-16 items-center justify-between gap-3 sm:h-[4.5rem] sm:gap-4">
         {/* Brand Wordmark & Tagline */}
         <div className="flex items-baseline gap-4">
           <a
@@ -106,18 +160,17 @@ export function BrandHeader({
           {onTakeTour && (
             <button
               type="button"
-              onClick={onTakeTour}
+              onClick={handleTakeTourClick}
+              onAnimationEnd={() => setEntryGlowFinished(true)}
               aria-haspopup="dialog"
               aria-expanded={isTourOpen}
-              className={cn(
-                "chip-interactive ml-1 min-h-[38px] px-3 py-1.5 text-xs font-medium",
-                isTourOpen
-                  ? "border-forest bg-sage-soft text-forest"
-                  : "border-stone-strong bg-surface text-ink-secondary hover:bg-sage-soft/55 hover:text-ink"
-              )}
+              data-testid="header-take-tour-desktop"
+              data-entry-glow={entryGlowState}
+              data-tour-open={isTourOpen ? "true" : "false"}
+              className="take-tour-btn ml-1 min-h-[38px] px-3 py-1.5 text-xs font-medium"
             >
-              <Compass className="h-3.5 w-3.5 text-forest" aria-hidden="true" />
-              <span>Take a tour</span>
+              <Compass className="h-3.5 w-3.5 shrink-0 text-forest" aria-hidden="true" />
+              <span>Take a Tour</span>
             </button>
           )}
 
@@ -131,10 +184,27 @@ export function BrandHeader({
 
         {/* Mobile / Tablet Actions & Menu Trigger */}
         <div className="flex items-center gap-2 lg:hidden">
+          {onTakeTour && (
+            <button
+              type="button"
+              onClick={handleTakeTourClick}
+              onAnimationEnd={() => setEntryGlowFinished(true)}
+              aria-haspopup="dialog"
+              aria-expanded={isTourOpen}
+              data-testid="header-take-tour-mobile"
+              data-entry-glow={entryGlowState}
+              data-tour-open={isTourOpen ? "true" : "false"}
+              className="take-tour-btn min-h-[40px] px-2.5 py-1.5 text-xs font-medium sm:px-3"
+            >
+              <Compass className="h-3.5 w-3.5 shrink-0 text-forest" aria-hidden="true" />
+              <span>Take a Tour</span>
+            </button>
+          )}
+
           {compareCount > 0 && (
             <a
               href="#comparison"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-editorial border border-stone-border bg-surface px-3 py-2 text-xs font-medium text-ink"
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-editorial border border-stone-border bg-surface px-2.5 py-1.5 text-xs font-medium text-ink"
               aria-label={`Compare ${compareCount} selected products`}
             >
               <Scale className="h-3.5 w-3.5 text-forest" aria-hidden="true" />
@@ -214,11 +284,11 @@ export function BrandHeader({
                         aria-haspopup="dialog"
                         onClick={() => {
                           setMobileMenuOpen(false);
-                          onTakeTour();
+                          handleTakeTourClick();
                         }}
                         className="flex min-h-[46px] w-full items-center justify-between py-2.5 text-left text-base font-medium text-forest transition-colors hover:text-forest-hover"
                       >
-                        <span>Take a tour</span>
+                        <span>Take a Tour</span>
                         <Compass className="h-4 w-4" aria-hidden="true" />
                       </button>
                     )}
