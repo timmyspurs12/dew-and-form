@@ -29,131 +29,163 @@ beforeEach(() => {
   }) as unknown as typeof fetch;
 });
 
-describe("Dew & Form interactive first-time user onboarding flow", () => {
-  it("shows non-blocking Step 1 onboarding to first-time visitors while keeping main page content accessible", () => {
-    render(<DewAndFormExperience />);
+describe("Dew & Form first-time visitor interactive onboarding modal", () => {
+  it("displays an accessible modal popup with a blurred translucent backdrop over the existing homepage and isolates background interaction", () => {
+    const { container } = render(<DewAndFormExperience />);
 
-    const guide = screen.getByRole("region", {
-      name: /Dew & Form guided introduction/i,
+    // Modal dialog is open on first visit
+    const modal = screen.getByRole("dialog", {
+      name: /Find your skin’s kind of care\./i,
     });
-    expect(guide).toBeInTheDocument();
+    expect(modal).toBeInTheDocument();
+
+    // Backdrop uses CSS backdrop-filter blur and is a sibling (never an ancestor of modal text)
+    const backdrop = screen.getByTestId("onboarding-modal-backdrop");
+    expect(backdrop).toBeInTheDocument();
+    expect(backdrop.className).toContain("backdrop-blur");
+    expect(backdrop.contains(modal)).toBe(false);
+
+    // Existing homepage remains rendered underneath (not replaced by a separate page),
+    // while interaction/AT access to the dimmed background is isolated while modal is open
+    expect(container.textContent).toContain("Your skin, understood.");
+    expect(
+      screen.queryByRole("heading", { name: /Your skin, understood\./i })
+    ).not.toBeInTheDocument();
+
+    // Step 1 controls, progress bar, step count, and close button
+    expect(within(modal).getByText("Step 1 of 4")).toBeInTheDocument();
+    const progressBar = within(modal).getByRole("progressbar", {
+      name: /Onboarding progress/i,
+    });
+    expect(progressBar).toHaveAttribute("aria-valuenow", "1");
+    expect(progressBar).toHaveAttribute("aria-valuemax", "4");
 
     expect(
-      within(guide).getByRole("heading", { name: "Welcome to Dew & Form" })
+      within(modal).getByRole("button", { name: /Close onboarding tour/i })
     ).toBeInTheDocument();
-    expect(
-      within(guide).getByText(
-        /Find your skin’s kind of care\. Understand your skin, explore skincare products, and learn what goes into your routine\./i
-      )
-    ).toBeInTheDocument();
-    expect(within(guide).getByText("1 of 4")).toBeInTheDocument();
-    expect(within(guide).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
-    expect(within(guide).getByRole("button", { name: "Get started" })).toBeInTheDocument();
-    expect(within(guide).getByRole("button", { name: "Skip intro" })).toBeInTheDocument();
-
-    // Main page hero and workspaces remain non-blocked and accessible simultaneously
-    expect(
-      screen.getByRole("heading", { name: /Your skin, understood\./i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /Begin with a clear daylight portrait\./i })
-    ).toBeInTheDocument();
+    expect(within(modal).getByRole("button", { name: /^Next$/i })).toBeInTheDocument();
+    expect(within(modal).getByRole("button", { name: /^Skip intro$/i })).toBeInTheDocument();
   });
 
-  it("navigates forward and backward across all 4 steps, supports keyboard step arrows, and persists Finish", () => {
+  it("updates modal content in place across all 4 steps via Next/Back/keyboard step indicators and persists Finish", () => {
     const { unmount } = render(<DewAndFormExperience />);
-    const guide = screen.getByRole("region", {
-      name: /Dew & Form guided introduction/i,
-    });
 
-    // Step 1 -> Step 2 via "Get started"
-    fireEvent.click(within(guide).getByRole("button", { name: "Get started" }));
-    expect(within(guide).getByText("2 of 4")).toBeInTheDocument();
+    const modal = screen.getByRole("dialog");
+
+    // Step 1 -> Step 2 in place via Next (does NOT close modal)
+    fireEvent.click(within(modal).getByRole("button", { name: /^Next$/i }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(within(modal).getByText("Step 2 of 4")).toBeInTheDocument();
+    expect(within(modal).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "2");
     expect(
-      within(guide).getByRole("heading", { name: "Understand your skin" })
+      within(modal).getByRole("heading", { name: "Skin Analysis" })
     ).toBeInTheDocument();
     expect(
-      within(guide).getByText(/Results depend on the submitted image/i)
+      within(modal).getByText(
+        /Upload a clear, front-facing daylight face photo in the Skin Analysis Workspace/i
+      )
     ).toBeInTheDocument();
-    expect(within(guide).getByRole("button", { name: /Analyse my skin/i })).toBeInTheDocument();
-
-    // Step 2 -> Step 3 via "Next"
-    fireEvent.click(within(guide).getByRole("button", { name: /^Next$/i }));
-    expect(within(guide).getByText("3 of 4")).toBeInTheDocument();
+    expect(within(modal).getByRole("button", { name: /^Back$/i })).toBeInTheDocument();
     expect(
-      within(guide).getByRole("heading", { name: "Discover skincare" })
+      within(modal).getByRole("button", { name: /^Try Skin Analysis$/i })
     ).toBeInTheDocument();
-    expect(within(guide).getByRole("button", { name: /Explore products/i })).toBeInTheDocument();
 
-    // Step 3 -> Step 4 via "Next"
-    fireEvent.click(within(guide).getByRole("button", { name: /^Next$/i }));
-    expect(within(guide).getByText("4 of 4")).toBeInTheDocument();
+    // Step 2 -> Step 3 in place via Next
+    fireEvent.click(within(modal).getByRole("button", { name: /^Next$/i }));
+    expect(within(modal).getByText("Step 3 of 4")).toBeInTheDocument();
+    expect(within(modal).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "3");
     expect(
-      within(guide).getByRole("heading", { name: "Explore ingredients" })
+      within(modal).getByRole("heading", { name: "Product Discovery & Comparison" })
     ).toBeInTheDocument();
     expect(
-      within(guide).getByRole("button", { name: /Explore ingredients/i })
+      within(modal).getByRole("button", { name: /^Explore Products$/i })
     ).toBeInTheDocument();
 
-    // Step 4 -> Step 3 via "Back"
-    fireEvent.click(within(guide).getByRole("button", { name: /^Back$/i }));
-    expect(within(guide).getByText("3 of 4")).toBeInTheDocument();
+    // Step 3 -> Step 4 in place via Next
+    fireEvent.click(within(modal).getByRole("button", { name: /^Next$/i }));
+    expect(within(modal).getByText("Step 4 of 4")).toBeInTheDocument();
+    expect(within(modal).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "4");
+    expect(
+      within(modal).getByRole("heading", {
+        name: "Ingredient Explorer & Product Check",
+      })
+    ).toBeInTheDocument();
+    expect(
+      within(modal).getByRole("button", { name: /Open Ingredient Explorer/i })
+    ).toBeInTheDocument();
+    expect(
+      within(modal).getByRole("button", { name: /Inspect a Shelf Product/i })
+    ).toBeInTheDocument();
+    expect(within(modal).getByRole("button", { name: /^Finish$/i })).toBeInTheDocument();
 
-    // Keyboard ArrowRight on step 3 indicator -> moves to step 4
-    const step3Pill = within(guide).getByRole("button", {
-      name: /Step 3 of 4: Discover skincare/i,
+    // Step 4 -> Step 3 via Back
+    fireEvent.click(within(modal).getByRole("button", { name: /^Back$/i }));
+    expect(within(modal).getByText("Step 3 of 4")).toBeInTheDocument();
+
+    // Keyboard ArrowRight on Step 3 pill -> advances to Step 4
+    const step3Pill = within(modal).getByRole("button", {
+      name: /Step 3 of 4: Product Discovery & Comparison/i,
     });
     expect(step3Pill).toHaveAttribute("aria-current", "step");
     fireEvent.keyDown(step3Pill, { key: "ArrowRight" });
-    expect(within(guide).getByText("4 of 4")).toBeInTheDocument();
+    expect(within(modal).getByText("Step 4 of 4")).toBeInTheDocument();
 
-    // Click "Finish" -> closes onboarding and persists completion
-    fireEvent.click(within(guide).getByRole("button", { name: /^Finish$/i }));
+    // Finish dismisses modal, restores background accessibility, and persists completion
+    fireEvent.click(within(modal).getByRole("button", { name: /^Finish$/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("region", { name: /Dew & Form guided introduction/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole("heading", { name: /Your skin, understood\./i })
+    ).toBeInTheDocument();
 
     const stored = JSON.parse(window.localStorage.getItem(ONBOARDING_STORAGE_KEY) || "{}");
     expect(stored.status).toBe("completed");
 
-    // Simulate returning visit: remount after resetting in-memory cache while preserving localStorage
+    // Returning visitor remount does not show modal again
     unmount();
     resetOnboardingStoreForTests();
     render(<DewAndFormExperience />);
-    expect(
-      screen.queryByRole("region", { name: /Dew & Form guided introduction/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("persists Skip intro dismissal and replays from Step 1 when clicking 'Take a tour'", async () => {
+  it("supports Skip intro, Close button, Escape dismissal, and reopening from Step 1 via 'Take a tour'", async () => {
     render(<DewAndFormExperience />);
 
-    const guide = screen.getByRole("region", {
-      name: /Dew & Form guided introduction/i,
-    });
-    fireEvent.click(within(guide).getByRole("button", { name: "Skip intro" }));
-
-    expect(
-      screen.queryByRole("region", { name: /Dew & Form guided introduction/i })
-    ).not.toBeInTheDocument();
+    // 1. Dismiss via Skip intro
+    const modal = screen.getByRole("dialog");
+    fireEvent.click(within(modal).getByRole("button", { name: /^Skip intro$/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
       JSON.parse(window.localStorage.getItem(ONBOARDING_STORAGE_KEY) || "{}").status
     ).toBe("skipped");
 
-    // Replay via header "Take a tour" button
-    const takeTourButtons = screen.getAllByRole("button", { name: /Take a tour/i });
-    fireEvent.click(takeTourButtons[0]);
-
-    const replayedGuide = await screen.findByRole("region", {
-      name: /Dew & Form guided introduction/i,
-    });
-    expect(within(replayedGuide).getByText("1 of 4")).toBeInTheDocument();
+    // 2. Reopen via header "Take a tour" button -> starts at Step 1
+    fireEvent.click(screen.getAllByRole("button", { name: /Take a tour/i })[0]);
+    const reopenedByHeader = await screen.findByRole("dialog");
+    expect(within(reopenedByHeader).getByText("Step 1 of 4")).toBeInTheDocument();
     expect(
-      within(replayedGuide).getByRole("heading", { name: "Welcome to Dew & Form" })
+      within(reopenedByHeader).getByRole("heading", {
+        name: /Find your skin’s kind of care\./i,
+      })
     ).toBeInTheDocument();
+
+    // Advance to Step 2, then close via visible X button
+    fireEvent.click(within(reopenedByHeader).getByRole("button", { name: /^Next$/i }));
+    expect(within(reopenedByHeader).getByText("Step 2 of 4")).toBeInTheDocument();
+    fireEvent.click(
+      within(reopenedByHeader).getByRole("button", { name: /Close onboarding tour/i })
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // 3. Reopen via footer "Replay guided tour" -> resets cleanly back to Step 1, then dismiss via Escape
+    fireEvent.click(screen.getByRole("button", { name: /Replay guided tour/i }));
+    const reopenedByFooter = await screen.findByRole("dialog");
+    expect(within(reopenedByFooter).getByText("Step 1 of 4")).toBeInTheDocument();
+
+    fireEvent.keyDown(reopenedByFooter, { key: "Escape", code: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("connects 'Analyse my skin', 'Explore products', and 'Explore ingredients' to real features and guards against duplicate clicks", async () => {
+  it("connects direct-action buttons ('Try Skin Analysis', 'Explore Products', 'Open Ingredient Explorer', 'Inspect a Shelf Product') to real features", async () => {
     const scrollSpy = vi.fn();
     Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
@@ -162,73 +194,87 @@ describe("Dew & Form interactive first-time user onboarding flow", () => {
 
     render(<DewAndFormExperience />);
 
-    // 1. Step 2 -> "Analyse my skin" connects to #analysis and guards rapid double-click
-    let guide = screen.getByRole("region", {
-      name: /Dew & Form guided introduction/i,
+    // 1. Step 2 -> "Try Skin Analysis" navigates to #analysis and guards duplicate clicks
+    let modal = screen.getByRole("dialog");
+    fireEvent.click(within(modal).getByRole("button", { name: /^Next$/i }));
+
+    const tryAnalysisBtn = within(modal).getByRole("button", {
+      name: /^Try Skin Analysis$/i,
     });
-    fireEvent.click(within(guide).getByRole("button", { name: "Get started" }));
+    fireEvent.click(tryAnalysisBtn);
+    fireEvent.click(tryAnalysisBtn);
 
-    const analyseCta = within(guide).getByRole("button", { name: /Analyse my skin/i });
-    fireEvent.click(analyseCta);
-    fireEvent.click(analyseCta);
-
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() => {
       expect(document.activeElement?.id).toBe("analysis-heading");
     });
     expect(scrollSpy).toHaveBeenCalledTimes(1);
 
-    // 2. Replay -> Step 3 -> "Explore products" connects to #discovery
+    // 2. Reopen -> Step 3 -> "Explore Products" navigates to #discovery
     fireEvent.click(screen.getAllByRole("button", { name: /Take a tour/i })[0]);
-    guide = await screen.findByRole("region", {
-      name: /Dew & Form guided introduction/i,
-    });
+    modal = await screen.findByRole("dialog");
     fireEvent.click(
-      within(guide).getByRole("button", { name: /Step 3 of 4: Discover skincare/i })
+      within(modal).getByRole("button", {
+        name: /Step 3 of 4: Product Discovery & Comparison/i,
+      })
     );
-    fireEvent.click(within(guide).getByRole("button", { name: /Explore products/i }));
+    fireEvent.click(within(modal).getByRole("button", { name: /^Explore Products$/i }));
 
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() => {
       expect(document.activeElement?.id).toBe("discovery-heading");
     });
 
-    // 3. Replay -> direct feature jump OR Step 4 -> "Explore ingredients" opens real INCI drawer
+    // 3. Reopen -> Step 4 -> "Open Ingredient Explorer" opens real IngredientDetails drawer
     fireEvent.click(screen.getAllByRole("button", { name: /Take a tour/i })[0]);
-    guide = await screen.findByRole("region", {
-      name: /Dew & Form guided introduction/i,
-    });
+    modal = await screen.findByRole("dialog");
     fireEvent.click(
-      within(guide).getByRole("button", { name: /Step 4 of 4: INCI literacy/i })
+      within(modal).getByRole("button", {
+        name: /Step 4 of 4: Ingredient Explorer & Product Check/i,
+      })
     );
-    fireEvent.click(within(guide).getByRole("button", { name: /^Explore ingredients$/i }));
+    fireEvent.click(
+      within(modal).getByRole("button", { name: /Open Ingredient Explorer/i })
+    );
 
-    const inciDialog = await screen.findByRole("dialog");
+    const inciDrawer = await screen.findByRole("dialog", {
+      name: /Cosmetic Ingredient Monographs/i,
+    });
     expect(
-      within(inciDialog).getByRole("heading", { name: /Cosmetic Ingredient Monographs/i })
-    ).toBeInTheDocument();
-    expect(
-      within(inciDialog).getByRole("searchbox", {
+      within(inciDrawer).getByRole("searchbox", {
         name: /Search documented ingredients/i,
       })
     ).toBeInTheDocument();
-  });
 
-  it("allows selecting a workspace directly from Step 1 without completing all tutorial steps first", async () => {
-    render(<DewAndFormExperience />);
-    const guide = screen.getByRole("region", {
-      name: /Dew & Form guided introduction/i,
+    // Close IngredientDetails drawer
+    fireEvent.click(
+      within(inciDrawer).getByRole("button", {
+        name: /Close ingredient transparency panel/i,
+      })
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // 4. Reopen -> Step 4 -> "Inspect a Shelf Product" opens real FormulaShelfModal
+    fireEvent.click(screen.getAllByRole("button", { name: /Take a tour/i })[0]);
+    modal = await screen.findByRole("dialog");
+    fireEvent.click(
+      within(modal).getByRole("button", {
+        name: /Step 4 of 4: Ingredient Explorer & Product Check/i,
+      })
+    );
+    fireEvent.click(
+      within(modal).getByRole("button", { name: /Inspect a Shelf Product/i })
+    );
+
+    const shelfModal = await screen.findByRole("dialog", {
+      name: /Inspect a product from your shelf/i,
     });
-
-    // Still on Step 1 ("1 of 4") — click direct "INCI Monographs" shortcut
-    expect(within(guide).getByText("1 of 4")).toBeInTheDocument();
-    fireEvent.click(within(guide).getByRole("button", { name: /INCI Monographs/i }));
-
-    const inciDialog = await screen.findByRole("dialog");
     expect(
-      within(inciDialog).getByRole("heading", { name: /Cosmetic Ingredient Monographs/i })
+      within(shelfModal).getByLabelText(/INCI Ingredient Declaration/i)
     ).toBeInTheDocument();
   });
 
-  it("handles unavailable or throwing browser localStorage gracefully without crashing", () => {
+  it("handles unavailable or throwing browser localStorage gracefully without breaking the website", async () => {
     const getItemSpy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("Blocked", "SecurityError");
     });
@@ -238,22 +284,48 @@ describe("Dew & Form interactive first-time user onboarding flow", () => {
 
     try {
       render(<DewAndFormExperience />);
-      const guide = screen.getByRole("region", {
-        name: /Dew & Form guided introduction/i,
-      });
-      expect(guide).toBeInTheDocument();
+      const modal = screen.getByRole("dialog");
+      expect(modal).toBeInTheDocument();
 
-      // Dismissing does not throw even when Storage.setItem throws SecurityError
       expect(() => {
-        fireEvent.click(within(guide).getByRole("button", { name: "Skip intro" }));
+        fireEvent.click(within(modal).getByRole("button", { name: /^Skip intro$/i }));
       }).not.toThrow();
 
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("region", { name: /Dew & Form guided introduction/i })
-      ).not.toBeInTheDocument();
+        screen.getByRole("heading", { name: /Your skin, understood\./i })
+      ).toBeInTheDocument();
+
+      // Replay still works using in-memory fallback
+      fireEvent.click(screen.getAllByRole("button", { name: /Take a tour/i })[0]);
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
     } finally {
       getItemSpy.mockRestore();
       setItemSpy.mockRestore();
     }
+  });
+
+  it("supports reopening the onboarding modal from the mobile navigation drawer", async () => {
+    render(<DewAndFormExperience />);
+
+    // Dismiss initial modal first
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: /^Skip intro$/i,
+      })
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // Open mobile navigation menu drawer
+    fireEvent.click(screen.getByRole("button", { name: /Open navigation menu/i }));
+    const mobileDrawer = await screen.findByRole("dialog", { name: /Dew & Form/i });
+
+    // Click mobile "Take a tour" -> closes mobile drawer and opens onboarding modal at Step 1
+    fireEvent.click(within(mobileDrawer).getByRole("button", { name: /Take a tour/i }));
+
+    const onboardingModal = await screen.findByRole("dialog", {
+      name: /Find your skin’s kind of care\./i,
+    });
+    expect(within(onboardingModal).getByText("Step 1 of 4")).toBeInTheDocument();
   });
 });

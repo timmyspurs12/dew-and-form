@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { DewAndFormExperience } from "@/components/DewAndFormExperience";
 import { ProductComparison } from "@/components/ProductComparison";
 import { REFERENCE_FORMULATION_FIXTURES } from "@/fixtures/reference-formulations";
+import { writePersistedOnboardingStatus } from "@/lib/onboarding/storage";
 import { normalizeYouCamJsonOutput } from "@/lib/youcam/normalizer";
 import type { SkincareProduct } from "@/lib/ingredients/types";
 
@@ -28,6 +29,9 @@ const MOCK_OBF_PRODUCT: SkincareProduct = {
 };
 
 beforeEach(() => {
+  // Returning-visitor state so core page workflow tests interact directly with the workspace
+  writePersistedOnboardingStatus("completed");
+
   Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
     configurable: true,
     value: vi.fn(),
