@@ -2,13 +2,15 @@
 
 import React, { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Menu, X, Scale, Sparkles } from "lucide-react";
+import { Compass, Menu, Scale, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface BrandHeaderProps {
   hasResults: boolean;
   compareCount: number;
   activeSection?: string;
+  isTourOpen?: boolean;
+  onTakeTour?: () => void;
 }
 
 const NAV_ITEMS = [
@@ -23,11 +25,20 @@ export function BrandHeader({
   hasResults,
   compareCount,
   activeSection,
+  isTourOpen = false,
+  onTakeTour,
 }: BrandHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 border-b border-stone-border bg-canvas/95 backdrop-blur-sm transition-colors duration-200">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-editorial focus:bg-forest focus:px-4 focus:py-2 focus:text-xs focus:font-medium focus:text-surface"
+      >
+        Skip to main content
+      </a>
+
       <div className="editorial-container flex h-16 items-center justify-between gap-4 sm:h-[4.5rem]">
         {/* Brand Wordmark & Tagline */}
         <div className="flex items-baseline gap-4">
@@ -43,7 +54,7 @@ export function BrandHeader({
         </div>
 
         {/* Desktop Compact Navigation */}
-        <nav aria-label="Primary" className="hidden items-center gap-1 md:flex lg:gap-2">
+        <nav aria-label="Primary" className="hidden items-center gap-1 md:flex lg:gap-1.5">
           {NAV_ITEMS.map((item) => {
             const isInsights = item.id === "insights";
             const isCompare = item.id === "comparison";
@@ -55,7 +66,7 @@ export function BrandHeader({
                 href={item.href}
                 aria-current={isActive ? "true" : undefined}
                 className={cn(
-                  "group relative inline-flex items-center gap-1.5 rounded-editorial px-3 py-2 text-[13px] font-medium transition-colors duration-150",
+                  "group relative inline-flex items-center gap-1.5 rounded-editorial px-2.5 py-2 text-[13px] font-medium transition-colors duration-150 lg:px-3",
                   isActive
                     ? "text-forest"
                     : "text-ink-secondary hover:bg-sage-soft/50 hover:text-ink"
@@ -83,9 +94,27 @@ export function BrandHeader({
             );
           })}
 
+          {onTakeTour && (
+            <button
+              type="button"
+              onClick={onTakeTour}
+              aria-expanded={isTourOpen}
+              aria-controls="onboarding-guide"
+              className={cn(
+                "ml-1 inline-flex min-h-[38px] items-center gap-1.5 rounded-editorial border px-3 py-1.5 text-xs font-medium transition-colors duration-150",
+                isTourOpen
+                  ? "border-forest bg-sage-soft text-forest"
+                  : "border-stone-strong bg-surface text-ink-secondary hover:bg-sage-soft/55 hover:text-ink"
+              )}
+            >
+              <Compass className="h-3.5 w-3.5 text-forest" aria-hidden="true" />
+              <span>Take a tour</span>
+            </button>
+          )}
+
           <a
             href="#analysis"
-            className="ml-2 inline-flex items-center gap-2 rounded-editorial bg-forest px-4 py-2 text-[13px] font-medium text-surface transition-colors duration-150 hover:bg-forest-hover"
+            className="ml-1.5 inline-flex items-center gap-2 rounded-editorial bg-forest px-4 py-2 text-[13px] font-medium text-surface transition-colors duration-150 hover:bg-forest-hover"
           >
             <span>Explore my skin</span>
           </a>
@@ -161,6 +190,20 @@ export function BrandHeader({
                         )}
                       </a>
                     ))}
+
+                    {onTakeTour && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          onTakeTour();
+                        }}
+                        className="flex min-h-[48px] w-full items-center justify-between py-3 text-left text-base font-medium text-forest transition-colors hover:text-forest-hover"
+                      >
+                        <span>Take a tour</span>
+                        <Compass className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    )}
                   </nav>
                 </div>
 

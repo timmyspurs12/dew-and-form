@@ -17,7 +17,9 @@ import type {
 import type { FormulationCategory, SkincareProduct } from "@/lib/ingredients/types";
 
 import { BrandHeader } from "./BrandHeader";
+import { OnboardingTour } from "./OnboardingTour";
 import { EditorialHero } from "./EditorialHero";
+import { useOnboardingVisibility } from "@/lib/onboarding/storage";
 import { ApproachSection } from "./ApproachSection";
 import { SkinImageUploader, type SelectedSkinImage } from "./SkinImageUploader";
 import { AnalysisProgress } from "./AnalysisProgress";
@@ -56,6 +58,15 @@ function waitAbortable(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 export function DewAndFormExperience() {
+  // Non-blocking first-visit onboarding & replay state
+  const {
+    isOpen: isOnboardingOpen,
+    completeOnboarding,
+    skipOnboarding,
+    replayOnboarding,
+  } = useOnboardingVisibility();
+  const [onboardingReplayGeneration, setOnboardingReplayGeneration] = useState(0);
+
   // Server status
   const [liveApiConfigured, setLiveApiConfigured] = useState<boolean | null>(null);
 
@@ -678,6 +689,59 @@ export function DewAndFormExperience() {
     setUserShelfProducts((prev) => [product, ...prev]);
   }, []);
 
+  const scrollAndFocusSection = useCallback((sectionId: string, headingId?: string) => {
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const sectionEl = document.getElementById(sectionId);
+    sectionEl?.scrollIntoView({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      block: "start",
+    });
+
+    if (headingId) {
+      const headingEl = document.getElementById(headingId);
+      headingEl?.focus({ preventScroll: true });
+    }
+  }, []);
+
+  const handleTakeTour = useCallback(() => {
+    setOnboardingReplayGeneration((prev) => prev + 1);
+    replayOnboarding();
+    window.requestAnimationFrame(() => {
+      scrollAndFocusSection("onboarding-guide", "onboarding-step-heading");
+    });
+  }, [replayOnboarding, scrollAndFocusSection]);
+
+  const handleOnboardingToAnalysis = useCallback(() => {
+    completeOnboarding();
+    window.requestAnimationFrame(() => {
+      scrollAndFocusSection("analysis", "analysis-heading");
+    });
+  }, [completeOnboarding, scrollAndFocusSection]);
+
+  const handleOnboardingToDiscovery = useCallback(() => {
+    completeOnboarding();
+    window.requestAnimationFrame(() => {
+      scrollAndFocusSection("discovery", "discovery-heading");
+    });
+  }, [completeOnboarding, scrollAndFocusSection]);
+
+  const handleOnboardingToComparison = useCallback(() => {
+    completeOnboarding();
+    window.requestAnimationFrame(() => {
+      scrollAndFocusSection("comparison", "comparison-heading");
+    });
+  }, [completeOnboarding, scrollAndFocusSection]);
+
+  const handleOnboardingToIngredients = useCallback(() => {
+    completeOnboarding();
+    scrollAndFocusSection("discovery");
+    handleInspectProduct(null);
+  }, [completeOnboarding, handleInspectProduct, scrollAndFocusSection]);
+
   const isBusy = workflowStatus === "submitting" || workflowStatus === "polling";
 
   const retryAction = resumableTask
@@ -693,9 +757,25 @@ export function DewAndFormExperience() {
       <BrandHeader
         hasResults={Boolean(analysisResult)}
         compareCount={comparedProducts.length}
+        isTourOpen={isOnboardingOpen}
+        onTakeTour={handleTakeTour}
       />
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
+        {/* Guided First-Visit Studio Introduction (non-blocking, dismissible & replayable) */}
+        {isOnboardingOpen && (
+          <OnboardingTour
+            key={onboardingReplayGeneration}
+            replayGeneration={onboardingReplayGeneration}
+            onSkip={skipOnboarding}
+            onFinish={completeOnboarding}
+            onNavigateToAnalysis={handleOnboardingToAnalysis}
+            onNavigateToDiscovery={handleOnboardingToDiscovery}
+            onNavigateToComparison={handleOnboardingToComparison}
+            onOpenIngredientsWorkspace={handleOnboardingToIngredients}
+          />
+        )}
+
         {/* A. Brand Landing Hero */}
         <EditorialHero />
 
@@ -716,7 +796,8 @@ export function DewAndFormExperience() {
                   <p className="eyebrow-label text-sage-botanical">Skin Analysis Workspace</p>
                   <h2
                     id="analysis-heading"
-                    className="mt-2.5 font-serif text-display-md font-normal text-ink"
+                    tabIndex={-1}
+                    className="mt-2.5 font-serif text-display-md font-normal text-ink focus:outline-none"
                   >
                     Begin with a clear daylight portrait.
                   </h2>
@@ -1041,6 +1122,15 @@ export function DewAndFormExperience() {
                   <a href="#comparison" className="hover:text-ink">
                     Formulation Comparison
                   </a>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={handleTakeTour}
+                    className="text-left text-forest underline decoration-forest/35 underline-offset-4 hover:text-forest-hover"
+                  >
+                    Replay guided tour
+                  </button>
                 </li>
               </ul>
             </div>
