@@ -1,8 +1,15 @@
+import fs from "node:fs";
+import path from "node:path";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { DewAndFormExperience } from "@/components/DewAndFormExperience";
-import { ONBOARDING_STORAGE_KEY, resetOnboardingStoreForTests } from "@/lib/onboarding/storage";
+import { TAKE_TOUR_ENTRY_GLOW_DURATION_MS } from "@/components/BrandHeader";
+import {
+  ONBOARDING_STORAGE_KEY,
+  resetOnboardingStoreForTests,
+  writePersistedOnboardingStatus,
+} from "@/lib/onboarding/storage";
 
 beforeEach(() => {
   Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
@@ -268,6 +275,122 @@ describe("Dew & Form first-time visitor 5-step interactive onboarding modal", ()
     } finally {
       getItemSpy.mockRestore();
       setItemSpy.mockRestore();
+    }
+  });
+
+  it("pulses 'Take a Tour' on page entry without hover, stops repeating after 6 seconds, and stays functional afterward", () => {
+    vi.useFakeTimers();
+    writePersistedOnboardingStatus("completed");
+
+    try {
+      render(<DewAndFormExperience />);
+
+      const desktopBtn = screen.getByTestId("header-take-tour-desktop");
+      const mobileBtn = screen.getByTestId("header-take-tour-mobile");
+
+      // Active immediately on page load without any pointer hover
+      expect(desktopBtn).toHaveClass("take-tour-btn");
+      expect(mobileBtn).toHaveClass("take-tour-btn");
+      expect(desktopBtn).toHaveAttribute("data-entry-glow", "active");
+      expect(mobileBtn).toHaveAttribute("data-entry-glow", "active");
+      expect(desktopBtn).toHaveAttribute("aria-expanded", "false");
+
+      // Still gently pulsing at 4.5s
+      act(() => {
+        vi.advanceTimersByTime(4500);
+      });
+      expect(desktopBtn).toHaveAttribute("data-entry-glow", "active");
+
+      // Automatically stops repeating at 6.0s (within the 5–7s window)
+      act(() => {
+        vi.advanceTimersByTime(TAKE_TOUR_ENTRY_GLOW_DURATION_MS - 4500);
+      });
+      expect(desktopBtn).toHaveAttribute("data-entry-glow", "settled");
+      expect(mobileBtn).toHaveAttribute("data-entry-glow", "settled");
+
+      // Remains visible, keyboard-focusable, and opens the tour afterward
+      desktopBtn.focus();
+      expect(document.activeElement).toBe(desktopBtn);
+
+      fireEvent.click(desktopBtn);
+      const modal = screen.getByRole("dialog");
+      expect(within(modal).getByText("Step 1 of 5")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("supports clicking 'Take a Tour' while the entry glow is active and reopening from the mobile drawer", async () => {
+    writePersistedOnboardingStatus("completed");
+    render(<DewAndFormExperience />);
+
+    const desktopBtn = screen.getByTestId("header-take-tour-desktop");
+    expect(desktopBtn).toHaveAttribute("data-entry-glow", "active");
+
+    // Clicking during the active pulse works immediately and settles the entry glow
+    fireEvent.click(desktopBtn);
+    const modal = await screen.findByRole("dialog", {
+      name: /Find your skin’s kind of care\./i,
+    });
+    expect(within(modal).getByText("Step 1 of 5")).toBeInTheDocument();
+
+    fireEvent.click(within(modal).getByRole("button", { name: /Close onboarding tour/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(desktopBtn).toHaveAttribute("data-entry-glow", "settled");
+
+    // Mobile drawer "Take a Tour" also reopens the 5-step modal cleanly
+    fireEvent.click(screen.getByRole("button", { name: /Open navigation menu/i }));
+    const mobileDrawer = await screen.findByRole("dialog", { name: /Dew & Form/i });
+    fireEvent.click(within(mobileDrawer).getByRole("button", { name: /Take a Tour/i }));
+
+    const reopenedModal = await screen.findByRole("dialog", {
+      name: /Find your skin’s kind of care\./i,
+    });
+    expect(within(reopenedModal).getByText("Step 1 of 5")).toBeInTheDocument();
+  });
+
+  it("disables the pulsing animation under prefers-reduced-motion while keeping a static highlight and full functionality", async () => {
+    writePersistedOnboardingStatus("completed");
+    const originalMatchMedia = window.matchMedia;
+
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes("prefers-reduced-motion: reduce"),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    try {
+      render(<DewAndFormExperience />);
+
+      const desktopBtn = screen.getByTestId("header-take-tour-desktop");
+      const mobileBtn = screen.getByTestId("header-take-tour-mobile");
+
+      expect(desktopBtn).toHaveAttribute("data-entry-glow", "reduced-motion");
+      expect(mobileBtn).toHaveAttribute("data-entry-glow", "reduced-motion");
+
+      // Verify CSS contract for sage glow, hover lift, focus-visible ring, and reduced-motion static highlight
+      const css = fs.readFileSync(
+        path.resolve(process.cwd(), "src/app/globals.css"),
+        "utf8"
+      );
+      expect(css).toContain("@keyframes takeTourEntryGlow");
+      expect(css).toContain("brightness(1.035)");
+      expect(css).toMatch(/\.take-tour-btn\[data-entry-glow="active"\]\s*\{[^}]*2s[^}]*3 forwards/);
+      expect(css).toContain(".take-tour-btn:hover:not(:disabled)");
+      expect(css).toContain(".take-tour-btn:focus-visible");
+      expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*animation:\s*none\s*!important/);
+
+      // Clicking still opens the onboarding modal cleanly
+      fireEvent.click(mobileBtn);
+      const modal = await screen.findByRole("dialog");
+      expect(within(modal).getByText("Step 1 of 5")).toBeInTheDocument();
+    } finally {
+      window.matchMedia = originalMatchMedia;
     }
   });
 });
