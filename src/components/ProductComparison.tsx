@@ -140,7 +140,7 @@ export function ProductComparison({
                   ? `"${comparedProducts[0].name}" is ready—select one more formulation to compare`
                   : "Select two or three formulations above to compare them side by side"
               }
-              description="Use the 'Compare' button on any formulation card—either from products you add from your own shelf or from the clearly marked reference INCI archetypes—to inspect composition differences here."
+              description="Use the 'Compare' button on any formulation card—from the Open Beauty Facts INCI registry, products added from your own shelf, or the reference formulation archetypes—to inspect composition differences here."
             >
               <a
                 href="#discovery"
@@ -219,9 +219,11 @@ export function ProductComparison({
                     <p className="font-mono font-medium text-ink">
                       {product.price
                         ? formatProductPrice(product.price)
-                        : product.sourceKind === "development-fixture"
-                          ? "Unavailable (Non-commercial fixture)"
-                          : "Unavailable (Not entered)"}
+                        : product.sourceKind === "open-beauty-facts"
+                          ? "Not listed (Open Beauty Facts ODbL)"
+                          : product.sourceKind === "reference-archetype"
+                            ? "Non-commercial archetype"
+                            : "Not entered"}
                     </p>
                     <p className="mt-1 text-ink-secondary">
                       {product.sizeLabel ?? "Volume not specified"}

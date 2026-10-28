@@ -393,11 +393,12 @@ interface RateBucket {
 
 const rateBuckets = new Map<string, RateBucket>();
 
-export type RateLimitScope = "create_task" | "poll_task";
+export type RateLimitScope = "create_task" | "poll_task" | "products_search";
 
 const RATE_LIMIT_RULES: Record<RateLimitScope, { maxRequests: number; windowMs: number }> = {
   create_task: { maxRequests: 6, windowMs: 5 * 60 * 1000 }, // 6 new tasks per 5 min per client
   poll_task: { maxRequests: 60, windowMs: 5 * 60 * 1000 }, // 60 status checks per 5 min per client
+  products_search: { maxRequests: 45, windowMs: 60 * 1000 }, // 45 registry queries per min per client
 };
 
 export function extractClientRateKey(request: Request, sessionId: string | null): string {

@@ -388,14 +388,39 @@ export function findIngredientMonograph(rawName: string): IngredientMonograph | 
   return null;
 }
 
+export function cleanRawInciText(raw: string): string {
+  return raw
+    .replace(/^\s*ingredients?\s*:?\s*/i, "")
+    .replace(/\bPlease be aware that ingredient lists[\s\S]*$/i, "")
+    .replace(/\*\s*Ingr[ée]dients?\s+issus[\s\S]*$/i, "")
+    .replace(/\bLote\s*:[\s\S]*$/i, "")
+    .replace(/\(\s*F\.?I\.?L\.?\s*[^)]*\)/gi, "")
+    .replace(/\[[A-Z0-9._-]{3,}\]/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/[.\s]+$/, "")
+    .trim();
+}
+
 export function parseInciDeclaration(inciDeclaration: string | null | undefined): ParsedFormulaIngredient[] {
   if (!inciDeclaration || !inciDeclaration.trim()) {
     return [];
   }
 
-  return inciDeclaration
-    .split(/[,;•\n]+/)
-    .map((part) => part.trim())
+  const cleaned = cleanRawInciText(inciDeclaration);
+  if (!cleaned) {
+    return [];
+  }
+
+  // Some European packaging labels separate INCI entries with " - " rather than commas
+  const hasStandardDelimiters = /(?<!\d),(?!\d)|[;•\n]/.test(cleaned);
+  const rawTokens = hasStandardDelimiters
+    ? cleaned.split(/(?<!\d),(?!\d)|[;•\n]+/)
+    : /\s+-\s+/.test(cleaned)
+      ? cleaned.split(/\s+-\s+/)
+      : [cleaned];
+
+  return rawTokens
+    .map((part) => part.replace(/^[-•*\s]+|[-•*\s.]+$/g, "").trim())
     .filter((part) => part.length > 0)
     .map((rawLabel, index) => ({
       position: index + 1,
