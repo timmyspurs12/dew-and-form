@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* 60% Warm Ivory, Soft Porcelain & Subtle Parchment Canvas */
+  --color-canvas: #F7F5EF;
+  --color-canvas-subtle: #EFECE3;
+  --color-surface: #FFFEFA;
+  --color-surface-elevated: #FAF8F2;
+
+  /* 30% Muted Sage, Botanical Neutrals & Warm Stone */
+  --color-sage-soft: #E5E9DE;
+  --color-sage-muted: #D5DDD0;
+  --color-botanical: #4A5A44; /* Refined from #53634D for >6.2:1 AA+ contrast */
+  --color-stone: #DAD5CA;
+  --color-border: #DDD8CD;
+  --color-border-strong: #BFB9AC;
+
+  /* Typography Hierarchy — Refined for WCAG 2.2 AA+ across canvas & sage surfaces */
+  --color-text-primary: #292C27;
+  --color-text-secondary: #565950; /* Refined from #73756C for 6.4:1 contrast on #F7F5EF */
+  --color-text-muted: #686B61;     /* >= 4.7:1 on #FFFEFA and #F7F5EF */
+
+  /* 10% Deliberate Accents: Deep Forest & Muted Clay */
+  --color-forest: #26382F;
+  --color-forest-hover: #1D2B24;
+  --color-clay: #A86E5A;
+  --color-clay-soft: #F3E8E3;
+  --color-clay-deep: #784635;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-canvas);
+    color: var(--color-text-primary);
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-text-primary);
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: var(--color-sage-soft);
+    color: var(--color-forest);
+  }
+
+  /* Clear, unmistakable WCAG 2.2 AA keyboard focus indicator */
+  :focus-visible {
+    outline: 2px solid var(--color-forest);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .editorial-container {
+    @apply mx-auto w-full max-w-[1360px] px-5 sm:px-8 lg:px-12;
+  }
+
+  .editorial-hairline {
+    border-color: var(--color-border);
+  }
+
+  .eyebrow-label {
+    @apply font-sans text-[11px] font-medium uppercase tracking-[0.14em] text-ink-secondary;
+  }
+}
+
+/* Respect user motion preferences across all CSS transitions & animations */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
